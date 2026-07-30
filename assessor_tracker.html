@@ -1,0 +1,2187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Assessor Tracker - Assessor Schedule & Block Management</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fff1f2',
+                            100: '#ffe4e6',
+                            200: '#fecdd3',
+                            300: '#fda4af',
+                            400: '#fb7185',
+                            500: '#f43f5e',
+                            600: '#e11d48',
+                            700: '#be123c',
+                            800: '#9f1239',
+                            900: '#881337',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- SheetJS (XLSX & CSV) -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- jsPDF & AutoTable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #fffafb; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(251, 113, 133, 0.05); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(251, 113, 133, 0.3); border-radius: 9999px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(225, 29, 72, 0.5); }
+        .cute-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(254, 205, 211, 0.6);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-rose-50/60 via-pink-50/40 to-purple-50/30 text-slate-700 min-h-screen flex flex-col antialiased selection:bg-rose-400 selection:text-white">
+
+<header class="bg-white/80 backdrop-blur-md border-b border-rose-100 sticky top-0 z-30 shadow-sm shadow-rose-100/50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between h-16">
+            <!-- Logo & Title -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-400 via-pink-400 to-purple-400 flex items-center justify-center text-white shadow-lg shadow-pink-300/40 transform hover:scale-105 transition">
+                    <i data-lucide="sparkles" class="w-5 h-5 animate-pulse"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-1.5">
+                        <h1 class="text-base sm:text-lg font-extrabold bg-gradient-to-r from-rose-600 via-pink-600 to-purple-600 bg-clip-text text-transparent">Assessor Tracker</h1>
+                    </div>
+                    <p class="text-[11px] text-rose-400 font-medium">Assessor Schedule & Block Management</p>
+                </div>
+            </div>
+
+            <!-- Global Action Controls -->
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <!-- Global Date Selector -->
+                <div class="hidden sm:flex items-center space-x-2 bg-rose-50/80 px-3 py-1.5 rounded-full border border-rose-200/60">
+                    <i data-lucide="calendar-heart" class="w-4 h-4 text-rose-400"></i>
+                    <span class="text-xs font-semibold text-rose-700">Date:</span>
+                    <input type="date" id="globalDateFilter" class="bg-white text-xs text-rose-800 border border-rose-200 rounded-lg px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-rose-300 font-medium cursor-pointer">
+                </div>
+
+                <!-- Add Assessor Button -->
+                <button id="openNewAssessorBtn" onclick="openAssessorModal()" class="flex items-center space-x-1.5 bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold px-3 py-2 rounded-xl transition border border-rose-200 shadow-sm hover:scale-105 active:scale-95">
+                    <i data-lucide="user-plus" class="w-3.5 h-3.5 text-rose-500"></i>
+                    <span>+ Add Assessor</span>
+                </button>
+
+                <!-- New Block Schedule Button -->
+                <button id="openNewBookingBtn" onclick="openBookingModal()" class="flex items-center space-x-1.5 bg-gradient-to-r from-rose-500 via-pink-500 to-purple-500 hover:opacity-95 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-md shadow-rose-300/40 hover:scale-105 active:scale-95">
+                    <i data-lucide="heart-handshake" class="w-4 h-4"></i>
+                    <span>+ Block Schedule</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 flex flex-col lg:flex-row gap-6 w-full">
+
+    <!-- LEFT SIDE PANEL: ASSESSOR AVAILABILITY OVERVIEW -->
+    <aside class="w-full lg:w-80 flex-shrink-0 flex flex-col gap-4">
+        <div class="cute-card rounded-2xl border border-rose-200/80 shadow-md shadow-pink-100/50 p-4 flex flex-col flex-1 max-h-[85vh] lg:max-h-none">
+            
+            <div class="flex items-center justify-between pb-3 border-b border-rose-100 mb-3">
+                <div class="flex items-center space-x-2">
+                    <div class="p-1.5 rounded-xl bg-rose-100 text-rose-600">
+                        <i data-lucide="users-round" class="w-4 h-4"></i>
+                    </div>
+                    <h2 class="font-bold text-slate-800 text-xs uppercase tracking-wider">Assessors List</h2>
+                </div>
+                <span id="activeDateBadge" class="text-[11px] bg-rose-100 text-rose-700 font-semibold px-2.5 py-0.5 rounded-full border border-rose-200">Today</span>
+            </div>
+
+            <!-- Mobile Date Selector -->
+            <div class="sm:hidden mb-3">
+                <label class="block text-xs font-semibold text-rose-700 mb-1">📅 Active Date:</label>
+                <input type="date" id="globalDateFilterMobile" class="w-full bg-rose-50/50 text-xs border border-rose-200 rounded-xl p-2 font-medium">
+            </div>
+
+            <!-- Search & Availability Filter Controls -->
+            <div class="space-y-2.5 mb-3">
+                <div class="relative">
+                    <i data-lucide="search" class="w-3.5 h-3.5 text-rose-400 absolute left-3 top-2.5"></i>
+                    <input type="text" id="assessorSearchInput" placeholder="Search assessor name..." class="w-full bg-rose-50/40 text-xs pl-8 pr-3 py-2 border border-rose-200/80 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium placeholder-rose-300">
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <label for="availabilityFilterSelect" class="text-[11px] font-bold text-rose-600 whitespace-nowrap">Filter Status:</label>
+                    <select id="availabilityFilterSelect" class="w-full bg-white text-xs border border-rose-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-pink-300 font-semibold text-slate-700 cursor-pointer">
+                        <option value="ALL">All Statuses</option>
+                        <option value="available">🟢 Available Only</option>
+                        <option value="booked">🔴 Blocked Only</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-1 bg-rose-50/60 p-1.5 rounded-xl text-[10px] font-semibold text-slate-600 text-center border border-rose-100">
+                    <div class="flex items-center justify-center space-x-1">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-emerald-100"></span>
+                        <span>Available</span>
+                    </div>
+                    <div class="flex items-center justify-center space-x-1">
+                        <span class="w-2 h-2 rounded-full bg-rose-400 ring-2 ring-rose-100"></span>
+                        <span>Blocked</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Assessor Cards List -->
+            <div id="assessorList" class="space-y-2.5 overflow-y-auto custom-scrollbar flex-1 pr-1 min-h-[300px]">
+                <!-- Assessor Cards Rendered Dynamically -->
+            </div>
+
+            <div class="mt-3 pt-3 border-t border-rose-100 text-[11px] text-rose-400 flex justify-between items-center font-medium">
+                <span>Click card to block schedule</span>
+                <span id="totalAssessorsCount" class="bg-rose-100 text-rose-700 font-bold px-2 py-0.5 rounded-full text-[10px]">0 Assessors</span>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col gap-4 min-w-0">
+        
+        <!-- Navigation Tabs & View Controls -->
+        <div class="cute-card rounded-2xl border border-rose-200/80 p-3 shadow-sm flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center bg-rose-50/80 p-1 rounded-xl border border-rose-100 flex-wrap gap-1">
+                <button id="tabCalendar" onclick="switchView('calendar')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-rose-600 shadow-sm border border-rose-100">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                    <span>Calendar</span>
+                </button>
+                <button id="tabTable" onclick="switchView('table')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:text-rose-600 transition">
+                    <i data-lucide="list-filter" class="w-3.5 h-3.5"></i>
+                    <span>All Schedule Blocks</span>
+                </button>
+                <button id="tabReports" onclick="switchView('reports')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:text-rose-600 transition">
+                    <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+                    <span>Export & Reports</span>
+                </button>
+                <button id="tabRegistry" onclick="switchView('registry')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:text-rose-600 transition">
+                    <i data-lucide="contact" class="w-3.5 h-3.5"></i>
+                    <span>Assessor Registry</span>
+                </button>
+                <button id="tabTeamRegistry" onclick="switchView('teamRegistry')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:text-rose-600 transition">
+                    <i data-lucide="users" class="w-3.5 h-3.5"></i>
+                    <span>Project Team Registry</span>
+                </button>
+            </div>
+
+            <div id="calendarViewControls" class="flex items-center space-x-3">
+                <div class="flex items-center space-x-1">
+                    <button id="calPrevBtn" class="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition">
+                        <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                    </button>
+                    <button id="calTodayBtn" class="px-3 py-1 text-xs font-bold border border-rose-200 rounded-lg hover:bg-rose-50 text-rose-700 transition">Today</button>
+                    <button id="calNextBtn" class="p-1.5 rounded-lg border border-rose-200 hover:bg-rose-50 text-rose-600 transition">
+                        <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <h3 id="calendarCurrentLabel" class="text-xs sm:text-sm font-extrabold text-slate-800 min-w-[140px] text-center">Month 2026</h3>
+
+                <div class="flex items-center bg-rose-50 p-1 rounded-xl text-xs font-bold border border-rose-100">
+                    <button id="calModeDay" onclick="setCalendarMode('day')" class="px-2.5 py-1 rounded-lg transition text-slate-500">Day</button>
+                    <button id="calModeWeek" onclick="setCalendarMode('week')" class="px-2.5 py-1 rounded-lg transition text-slate-500">Week</button>
+                    <button id="calModeMonth" onclick="setCalendarMode('month')" class="px-2.5 py-1 rounded-lg transition bg-white font-bold text-rose-600 shadow-sm border border-rose-100">Month</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- CALENDAR VIEW SECTION -->
+        <div id="viewCalendarSection" class="cute-card rounded-2xl border border-rose-200/80 shadow-md shadow-pink-100/40 p-4 flex-1 flex flex-col min-h-[550px] relative">
+            <div id="calendarGridContainer" class="flex-1 overflow-auto custom-scrollbar">
+                <!-- Dynamic Calendar Rendered Here -->
+            </div>
+        </div>
+
+        <!-- TABLE VIEW SECTION -->
+        <div id="viewTableSection" class="hidden cute-card rounded-2xl border border-rose-200/80 shadow-md p-4 flex-1 flex-col">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <div class="relative w-full sm:w-72">
+                    <i data-lucide="search" class="w-3.5 h-3.5 text-rose-400 absolute left-3 top-2.5"></i>
+                    <input type="text" id="tableSearchInput" placeholder="Search client, assessor, remarks..." class="w-full text-xs pl-8 pr-3 py-2 bg-rose-50/40 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+                </div>
+                <div class="flex items-center space-x-2 text-xs text-rose-700 font-semibold">
+                    <span>Filter Assessor:</span>
+                    <select id="tableAssessorFilter" class="border border-rose-200 rounded-xl text-xs px-2.5 py-1.5 bg-white font-medium focus:outline-none focus:ring-2 focus:ring-pink-300">
+                        <option value="ALL">All Assessors</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto flex-1 custom-scrollbar border border-rose-100 rounded-xl bg-white/70">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-rose-50/80 border-b border-rose-100 text-rose-700 font-bold uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3">Client Name</th>
+                            <th class="p-3">Assessor & Blocked By</th>
+                            <th class="p-3">Date</th>
+                            <th class="p-3">Time Window</th>
+                            <th class="p-3">Duration</th>
+                            <th class="p-3">Location</th>
+                            <th class="p-3">Remarks</th>
+                            <th class="p-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bookingsTableBody" class="divide-y divide-rose-50">
+                        <!-- Rows rendered dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- REPORTS VIEW SECTION -->
+        <div id="viewReportsSection" class="hidden cute-card rounded-2xl border border-rose-200/80 shadow-md p-6 flex-1 flex-col">
+            <div class="max-w-3xl mx-auto w-full space-y-6">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="file-check-2" class="w-5 h-5 text-rose-500"></i>
+                        <span>Export Assessment Reports</span>
+                    </h2>
+                    <p class="text-xs text-rose-400 mt-0.5 font-medium">Generate clean logs with full assessment schedules, locations, and durations.</p>
+                </div>
+
+                <div class="bg-rose-50/50 p-5 rounded-2xl border border-rose-200/60 space-y-4">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-rose-700">1. Select Range Preset</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="reportPreset" value="monthly" checked class="peer sr-only" onchange="toggleReportCustomRange()">
+                            <div class="p-3 rounded-xl border border-rose-200 bg-white peer-checked:border-rose-500 peer-checked:bg-rose-100/50 peer-checked:text-rose-800 transition flex flex-col items-center text-center shadow-xs">
+                                <i data-lucide="calendar-days" class="w-5 h-5 mb-1 text-rose-400"></i>
+                                <span class="text-xs font-bold">Monthly Report</span>
+                                <span class="text-[10px] text-slate-400 mt-0.5">Current month records</span>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="reportPreset" value="yearly" class="peer sr-only" onchange="toggleReportCustomRange()">
+                            <div class="p-3 rounded-xl border border-rose-200 bg-white peer-checked:border-rose-500 peer-checked:bg-rose-100/50 peer-checked:text-rose-800 transition flex flex-col items-center text-center shadow-xs">
+                                <i data-lucide="calendar" class="w-5 h-5 mb-1 text-pink-400"></i>
+                                <span class="text-xs font-bold">Yearly Report</span>
+                                <span class="text-[10px] text-slate-400 mt-0.5">Full year records</span>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="reportPreset" value="custom" class="peer sr-only" onchange="toggleReportCustomRange()">
+                            <div class="p-3 rounded-xl border border-rose-200 bg-white peer-checked:border-rose-500 peer-checked:bg-rose-100/50 peer-checked:text-rose-800 transition flex flex-col items-center text-center shadow-xs">
+                                <i data-lucide="sliders" class="w-5 h-5 mb-1 text-purple-400"></i>
+                                <span class="text-xs font-bold">Custom Range</span>
+                                <span class="text-[10px] text-slate-400 mt-0.5">Specify start & end dates</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div id="customRangeContainer" class="hidden grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                        <div>
+                            <label class="block text-xs font-semibold text-rose-700 mb-1">Start Date:</label>
+                            <input type="date" id="reportStartDate" class="w-full text-xs p-2 bg-white border border-rose-200 rounded-xl">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-rose-700 mb-1">End Date:</label>
+                            <input type="date" id="reportEndDate" class="w-full text-xs p-2 bg-white border border-rose-200 rounded-xl">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-rose-50/50 p-5 rounded-2xl border border-rose-200/60 space-y-4">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-rose-700">2. Filter Options</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-rose-700 mb-1">Assessor:</label>
+                            <select id="reportAssessorFilter" class="w-full text-xs p-2.5 bg-white border border-rose-200 rounded-xl font-medium">
+                                <option value="ALL">All Assessors</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-rose-700 mb-1">Output Format:</label>
+                            <select id="reportFormat" class="w-full text-xs p-2.5 bg-white border border-rose-200 rounded-xl font-semibold text-slate-700">
+                                <option value="xlsx">📊 Excel Workbook (.xlsx)</option>
+                                <option value="csv">📄 CSV File (.csv)</option>
+                                <option value="pdf">🎀 PDF Document (.pdf)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pt-2 flex justify-end">
+                    <button onclick="generateAndExportReport()" class="flex items-center space-x-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-md shadow-rose-300/40 text-xs">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Generate & Export Report</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ASSESSOR REGISTRY VIEW SECTION -->
+        <div id="viewRegistrySection" class="hidden cute-card rounded-2xl border border-rose-200/80 shadow-md p-6 flex-1 flex-col">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="users" class="w-5 h-5 text-rose-500"></i>
+                        <span>Assessor Registry</span>
+                    </h2>
+                    <p class="text-xs text-rose-400 mt-0.5 font-medium">Manage assessor directory, contact phone numbers, and active profiles.</p>
+                </div>
+                <div class="flex items-center space-x-3 w-full sm:w-auto">
+                    <div class="relative flex-1 sm:w-64">
+                        <i data-lucide="search" class="w-3.5 h-3.5 text-rose-400 absolute left-3 top-2.5"></i>
+                        <input type="text" id="registrySearchInput" placeholder="Search name or phone..." class="w-full text-xs pl-8 pr-3 py-2 bg-rose-50/40 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+                    </div>
+                    <button onclick="openAssessorModal()" class="flex items-center space-x-1.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-sm whitespace-nowrap">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                        <span>+ Add Assessor</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto flex-1 custom-scrollbar border border-rose-100 rounded-xl bg-white/70">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-rose-50/80 border-b border-rose-100 text-rose-700 font-bold uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3.5">Assessor Name</th>
+                            <th class="p-3.5">Phone Number</th>
+                            <th class="p-3.5">Number of Assessments Till Now</th>
+                            <th class="p-3.5 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="registryTableBody" class="divide-y divide-rose-50">
+                        <!-- Assessor rows rendered dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PROJECT TEAM REGISTRY VIEW SECTION -->
+        <div id="viewTeamRegistrySection" class="hidden cute-card rounded-2xl border border-rose-200/80 shadow-md p-6 flex-1 flex-col">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                <div>
+                    <h2 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="user-check" class="w-5 h-5 text-rose-500"></i>
+                        <span>Project Team Registry</span>
+                    </h2>
+                    <p class="text-xs text-rose-400 mt-0.5 font-medium">Manage project team resources who block assessors.</p>
+                </div>
+                <div class="flex items-center space-x-3 w-full sm:w-auto">
+                    <div class="relative flex-1 sm:w-64">
+                        <i data-lucide="search" class="w-3.5 h-3.5 text-rose-400 absolute left-3 top-2.5"></i>
+                        <input type="text" id="teamSearchInput" placeholder="Search team member name or role..." class="w-full text-xs pl-8 pr-3 py-2 bg-rose-50/40 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+                    </div>
+                    <button onclick="openTeamMemberModal()" class="flex items-center space-x-1.5 bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-95 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-sm whitespace-nowrap">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                        <span>+ Add Team Member</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto flex-1 custom-scrollbar border border-rose-100 rounded-xl bg-white/70">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-rose-50/80 border-b border-rose-100 text-rose-700 font-bold uppercase tracking-wider">
+                        <tr>
+                            <th class="p-3.5">Team Member Name</th>
+                            <th class="p-3.5">Role</th>
+                            <th class="p-3.5">Total Blocks Created</th>
+                            <th class="p-3.5 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="teamTableBody" class="divide-y divide-rose-50">
+                        <!-- Project team rows rendered dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- ADD / EDIT ASSESSOR MODAL -->
+<div id="assessorModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-rose-200 transform transition-all">
+        <div class="bg-gradient-to-r from-rose-400 via-pink-400 to-purple-400 text-white px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="user-plus" class="w-5 h-5"></i>
+                <h3 id="assessorModalTitle" class="font-extrabold text-base">Add Assessor</h3>
+            </div>
+            <button onclick="closeModal('assessorModal')" class="text-white/80 hover:text-white transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="assessorForm" onsubmit="handleAssessorSubmit(event)" class="p-6 space-y-4">
+            <input type="hidden" id="editingAssessorId" value="">
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Full Name <span class="text-rose-500">*</span></label>
+                <input type="text" id="newAssessorName" required placeholder="e.g. Dr. Sarah Jenkins" class="w-full text-xs px-3.5 py-2.5 bg-rose-50/30 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Phone Number</label>
+                <input type="text" id="newAssessorPhone" placeholder="e.g. +1 (555) 234-5678" class="w-full text-xs px-3.5 py-2.5 bg-rose-50/30 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+            </div>
+
+            <div class="pt-3 border-t border-rose-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('assessorModal')" class="px-4 py-2 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 hover:bg-rose-50 transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-95 text-white rounded-xl text-xs font-bold transition shadow-sm">Save Assessor</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ADD / EDIT PROJECT TEAM MEMBER MODAL -->
+<div id="teamMemberModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-rose-200 transform transition-all">
+        <div class="bg-gradient-to-r from-rose-400 via-pink-400 to-purple-400 text-white px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="user-plus" class="w-5 h-5"></i>
+                <h3 id="teamMemberModalTitle" class="font-extrabold text-base">Add Team Member</h3>
+            </div>
+            <button onclick="closeModal('teamMemberModal')" class="text-white/80 hover:text-white transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="teamMemberForm" onsubmit="handleTeamMemberSubmit(event)" class="p-6 space-y-4">
+            <input type="hidden" id="editingTeamMemberId" value="">
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Full Name <span class="text-rose-500">*</span></label>
+                <input type="text" id="newTeamMemberName" required placeholder="e.g. Emma Watson" class="w-full text-xs px-3.5 py-2.5 bg-rose-50/30 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Role / Title <span class="text-rose-500">*</span></label>
+                <input type="text" id="newTeamMemberRole" required placeholder="e.g. Assessment Coordinator" class="w-full text-xs px-3.5 py-2.5 bg-rose-50/30 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+            </div>
+
+            <div class="pt-3 border-t border-rose-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('teamMemberModal')" class="px-4 py-2 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 hover:bg-rose-50 transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-95 text-white rounded-xl text-xs font-bold transition shadow-sm">Save Team Member</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- CREATE / EDIT BOOKING MODAL -->
+<div id="bookingModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden border border-rose-200 transform transition-all">
+        <div class="bg-gradient-to-r from-rose-500 via-pink-500 to-purple-500 text-white px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="calendar-plus" class="w-5 h-5"></i>
+                <h3 id="modalTitle" class="font-extrabold text-base">New Schedule Block</h3>
+            </div>
+            <button onclick="closeModal('bookingModal')" class="text-white/80 hover:text-white transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <form id="bookingForm" onsubmit="handleBookingSubmit(event)" class="p-6 space-y-4">
+            <input type="hidden" id="bookingId" value="">
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Client Name <span class="text-rose-500">*</span></label>
+                    <input type="text" id="clientName" required placeholder="e.g. Bloom Technologies" class="w-full text-xs px-3.5 py-2.5 bg-rose-50/30 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Project Team Member <span class="text-rose-500">*</span></label>
+                    <select id="blockedBySelect" required class="w-full text-xs px-3.5 py-2.5 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 bg-white font-medium">
+                        <option value="">-- Select Team Member --</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Assessor <span class="text-rose-500">*</span></label>
+                <select id="assessorSelect" required class="w-full text-xs px-3.5 py-2.5 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 bg-white font-medium">
+                    <option value="">-- Select Assessor --</option>
+                </select>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Date <span class="text-rose-500">*</span></label>
+                    <input type="date" id="assessmentDate" required class="w-full text-xs px-3 py-2 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Start Time <span class="text-rose-500">*</span></label>
+                    <input type="time" id="startTime" required class="w-full text-xs px-3 py-2 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">End Time <span class="text-rose-500">*</span></label>
+                    <input type="time" id="endTime" required class="w-full text-xs px-3 py-2 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Location <span class="text-slate-400 font-normal">(Optional)</span></label>
+                <input type="text" id="bookingLocation" placeholder="e.g. Design Studio 4B or Zoom" class="w-full text-xs px-3.5 py-2.5 bg-rose-50/30 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium">
+            </div>
+
+            <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">Remarks / Notes</label>
+                <textarea id="bookingRemarks" rows="2" placeholder="Special assessment scope & checklist..." class="w-full text-xs px-3.5 py-2.5 bg-rose-50/30 border border-rose-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-300 font-medium"></textarea>
+            </div>
+
+            <div class="pt-3 border-t border-rose-100 flex items-center justify-end space-x-3">
+                <button type="button" onclick="closeModal('bookingModal')" class="px-4 py-2 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 hover:bg-rose-50 transition">Cancel</button>
+                <button type="submit" class="px-5 py-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:opacity-95 text-white rounded-xl text-xs font-bold transition shadow-sm">Save Block</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- BOOKING DETAIL POPUP MODAL -->
+<div id="detailModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-rose-200 transform transition-all">
+        <div class="bg-gradient-to-r from-rose-500 to-purple-600 text-white px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="heart" class="w-5 h-5 text-pink-200"></i>
+                <h3 class="font-extrabold text-base">Schedule Block Details</h3>
+            </div>
+            <button onclick="closeModal('detailModal')" class="text-white/80 hover:text-white transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-4">
+            <div class="bg-rose-50/70 p-4 rounded-2xl border border-rose-100 space-y-1">
+                <span class="text-[10px] font-extrabold uppercase text-rose-400 tracking-wider">Client</span>
+                <div class="flex justify-between items-center">
+                    <h4 id="detailClient" class="text-base font-extrabold text-slate-800"></h4>
+                    <span id="detailDurationBadge" class="bg-rose-200/60 text-rose-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-rose-300/40"></span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-xs">
+                <div class="bg-white p-3 rounded-xl border border-rose-100 shadow-xs">
+                    <span class="text-rose-400 text-[10px] uppercase font-bold block">Assessor</span>
+                    <span id="detailAssessor" class="font-bold text-slate-800"></span>
+                </div>
+                <div class="bg-white p-3 rounded-xl border border-rose-100 shadow-xs">
+                    <span class="text-rose-400 text-[10px] uppercase font-bold block">Blocked By</span>
+                    <span id="detailBlockedBy" class="font-bold text-purple-700"></span>
+                </div>
+                <div class="bg-white p-3 rounded-xl border border-rose-100 shadow-xs">
+                    <span class="text-rose-400 text-[10px] uppercase font-bold block">Date</span>
+                    <span id="detailDate" class="font-bold text-slate-800"></span>
+                </div>
+                <div class="bg-white p-3 rounded-xl border border-rose-100 shadow-xs">
+                    <span class="text-rose-400 text-[10px] uppercase font-bold block">Time Slot</span>
+                    <span id="detailTime" class="font-bold text-rose-600"></span>
+                </div>
+            </div>
+
+            <div class="bg-white p-3 rounded-xl border border-rose-100 shadow-xs text-xs">
+                <span class="text-rose-400 text-[10px] uppercase font-bold block">Location</span>
+                <span id="detailLocation" class="font-bold text-slate-800"></span>
+            </div>
+
+            <div class="bg-rose-50/40 p-3 rounded-xl border border-rose-100">
+                <span class="text-rose-400 text-[10px] uppercase font-bold block mb-1">Remarks</span>
+                <p id="detailRemarks" class="text-xs text-slate-600 italic">None provided</p>
+            </div>
+
+            <div class="pt-2 flex items-center justify-between border-t border-rose-100">
+                <button id="deleteBookingBtn" class="flex items-center space-x-1.5 px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition border border-rose-200">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    <span>Delete Block</span>
+                </button>
+                <div class="flex items-center space-x-2">
+                    <button onclick="closeModal('detailModal')" class="px-3 py-2 border border-rose-200 text-xs font-bold rounded-xl hover:bg-rose-50 text-rose-700">Close</button>
+                    <button id="editBookingBtn" class="flex items-center space-x-1.5 px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xs font-bold rounded-xl transition shadow-sm">
+                        <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                        <span>Edit Block</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ALL BLOCKS FOR DATE SUMMARY MODAL -->
+<div id="dayBlocksModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden border border-rose-200 transform transition-all max-h-[85vh] flex flex-col">
+        <div class="bg-gradient-to-r from-rose-500 via-pink-500 to-purple-500 text-white px-6 py-4 flex items-center justify-between flex-shrink-0">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="calendar-days" class="w-5 h-5 text-pink-100"></i>
+                <h3 id="dayBlocksModalTitle" class="font-extrabold text-base">Schedule Blocks</h3>
+            </div>
+            <button onclick="closeModal('dayBlocksModal')" class="text-white/80 hover:text-white transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <div class="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+            <div class="flex items-center justify-between pb-2 border-b border-rose-100">
+                <div class="text-xs font-bold text-rose-700" id="dayBlocksModalSubtitle">Blocks on this date</div>
+                <button id="addBlockForDayBtn" class="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-rose-500 to-pink-500 text-white font-bold rounded-xl text-xs hover:opacity-95 transition shadow-sm">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                    <span>+ Add Block</span>
+                </button>
+            </div>
+
+            <div id="dayBlocksListContainer" class="space-y-3">
+                <!-- Dynamically filled with all blocks for this date -->
+            </div>
+        </div>
+
+        <div class="p-4 bg-rose-50/50 border-t border-rose-100 flex justify-end flex-shrink-0">
+            <button onclick="closeModal('dayBlocksModal')" class="px-4 py-2 bg-white border border-rose-200 rounded-xl text-xs font-bold text-rose-700 hover:bg-rose-50 transition">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- CONFLICT ALERT MODAL -->
+<div id="conflictModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-rose-300">
+        <div class="bg-rose-500 text-white p-5 flex items-start space-x-3">
+            <div class="p-2 bg-rose-600 rounded-2xl shadow-sm">
+                <i data-lucide="alert-circle" class="w-6 h-6 text-white"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-base">Schedule Conflict Detected</h3>
+                <p class="text-xs text-rose-100 mt-0.5">Assessor double-block guard system.</p>
+            </div>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 text-xs text-rose-900 space-y-2">
+                <p class="font-bold text-sm text-rose-800" id="conflictMessage">
+                    This assessor is already blocked during the selected time.
+                </p>
+                <div id="conflictDetails" class="mt-2 pt-2 border-t border-rose-200/70 text-slate-700 space-y-1">
+                    <!-- Conflict details populated dynamically -->
+                </div>
+            </div>
+            <div class="flex justify-end">
+                <button onclick="closeModal('conflictModal')" class="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl transition shadow-sm">
+                    Acknowledge & Adjust Time
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE CONFIRMATION MODAL -->
+<div id="confirmDeleteModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 border border-rose-100">
+        <div class="flex items-center space-x-3 text-rose-600">
+            <div class="p-2.5 bg-rose-100 rounded-2xl">
+                <i data-lucide="trash-2" class="w-5 h-5"></i>
+            </div>
+            <h3 class="font-bold text-sm text-slate-800">Confirm Deletion</h3>
+        </div>
+        <p id="confirmDeleteMessage" class="text-xs text-slate-600 font-medium">Are you sure you want to delete this schedule block? This action cannot be undone.</p>
+        <div class="flex justify-end space-x-2 pt-2">
+            <button onclick="closeModal('confirmDeleteModal')" class="px-3.5 py-2 text-xs font-bold border border-rose-200 rounded-xl text-rose-700">Cancel</button>
+            <button id="confirmDeleteBtn" class="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow-sm">Delete</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+    import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+
+    // Firebase Config
+    const appId = "internal-assessor-tracker";
+    const firebaseConfig = {
+  apiKey: "1:614503514428:web:f6749c4d89f5bb0da01e39",
+  authDomain: "internal-assessor-tracker.firebaseapp.com",
+  projectId: "internal-assessor-tracker",
+  storageBucket: "internal-assessor-tracker.firebasestorage.app",
+  messagingSenderId: "614503514428",
+  appId: "1:614503514428:web:f6749c4d89f5bb0da01e39",
+  measurementId: "G-8S00TM80NZ"
+};
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    let currentUser = null;
+
+    // Authenticate user before querying Firestore
+    const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    if (authToken) {
+        signInWithCustomToken(auth, authToken).catch(() => signInAnonymously(auth));
+    } else {
+        signInAnonymously(auth).catch((err) => console.log("Anonymous auth fallback:", err));
+    }
+
+    onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        if (user) {
+            setupRealtimeListeners();
+        }
+    });
+
+    // Firestore Collection references following mandatory public artifact pathing rules
+    const ASSESSORS_COL = collection(db, 'artifacts', appId, 'public', 'data', 'assessors');
+    const TEAM_COL = collection(db, 'artifacts', appId, 'public', 'data', 'projectTeam');
+    const BOOKINGS_COL = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
+
+    // --- Application State ---
+    let ASSESSORS = [];
+
+    let PROJECT_TEAM = [];
+
+    let bookings = [];
+    let currentView = 'calendar'; // 'calendar', 'table', 'reports', 'registry', 'teamRegistry'
+    let calendarMode = 'month'; // 'month', 'week', 'day'
+    let currentDate = new Date();
+    let globalActiveDate = new Date().toISOString().split('T')[0];
+    let pendingDeleteId = null;
+    let pendingDeleteType = 'booking'; // 'booking', 'assessor', or 'teamMember'
+
+    function setupRealtimeListeners() {
+        if (!currentUser) return;
+
+        onSnapshot(ASSESSORS_COL, (snapshot) => {
+            if (!snapshot.empty) {
+                ASSESSORS = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                populateAssessorDropdowns();
+                refreshAllViews();
+            }
+        }, err => console.log("Assessors snapshot listener notice:", err));
+
+        onSnapshot(TEAM_COL, (snapshot) => {
+            if (!snapshot.empty) {
+                PROJECT_TEAM = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                populateAssessorDropdowns();
+                refreshAllViews();
+            }
+        }, err => console.log("Team snapshot listener notice:", err));
+
+        onSnapshot(BOOKINGS_COL, (snapshot) => {
+            if (!snapshot.empty) {
+                bookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                refreshAllViews();
+            }
+        }, err => console.log("Bookings snapshot listener notice:", err));
+    }
+
+    async function syncAssessorToFirestore(assessorData) {
+        if (!currentUser) return;
+        try {
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'assessors', assessorData.id), assessorData);
+        } catch (e) {
+            console.error("Firestore sync error:", e);
+        }
+    }
+
+    async function deleteAssessorFromFirestore(id) {
+        if (!currentUser) return;
+        try {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'assessors', id));
+        } catch (e) {
+            console.error("Firestore delete error:", e);
+        }
+    }
+
+    async function syncTeamMemberToFirestore(memberData) {
+        if (!currentUser) return;
+        try {
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projectTeam', memberData.id), memberData);
+        } catch (e) {
+            console.error("Firestore sync error:", e);
+        }
+    }
+
+    async function deleteTeamMemberFromFirestore(id) {
+        if (!currentUser) return;
+        try {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projectTeam', id));
+        } catch (e) {
+            console.error("Firestore delete error:", e);
+        }
+    }
+
+    async function syncBookingToFirestore(bookingData) {
+        if (!currentUser) return;
+        try {
+            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bookings', bookingData.id), bookingData);
+        } catch (e) {
+            console.error("Firestore sync error:", e);
+        }
+    }
+
+    async function deleteBookingFromFirestore(id) {
+        if (!currentUser) return;
+        try {
+            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bookings', id));
+        } catch (e) {
+            console.error("Firestore delete error:", e);
+        }
+    }
+
+    function formatDateStr(dateObj) {
+        const y = dateObj.getFullYear();
+        const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
+
+    function getAssessorBadgeHtml(name) {
+        const parts = name.trim().split(' ');
+        let initials = parts[0] ? parts[0].charAt(0) : '';
+        if (parts.length > 1) {
+            initials += parts[parts.length - 1].charAt(0);
+        }
+        initials = initials.toUpperCase() || 'A';
+
+        return `
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-400 to-pink-300 text-white font-extrabold text-xs flex items-center justify-center shadow-xs border border-rose-200 flex-shrink-0 tracking-wider">
+                ${initials}
+            </div>
+        `;
+    }
+
+    function openModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.classList.remove('hidden');
+    }
+
+    function closeModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal) modal.classList.add('hidden');
+    }
+
+    function alertModal(title, message) {
+        document.getElementById('conflictMessage').innerText = title;
+        document.getElementById('conflictDetails').innerHTML = `<p class="text-xs text-slate-600">${message}</p>`;
+        openModal('conflictModal');
+    }
+
+    function calculateDuration(start, end) {
+        if (!start || !end) return 'N/A';
+        const [sH, sM] = start.split(':').map(Number);
+        const [eH, eM] = end.split(':').map(Number);
+        let diff = (eH * 60 + eM) - (sH * 60 + sM);
+        if (diff <= 0) return 'Invalid';
+        const h = Math.floor(diff / 60);
+        const m = diff % 60;
+        if (h > 0 && m > 0) return `${h}h ${m}m`;
+        if (h > 0) return `${h}h`;
+        return `${m}m`;
+    }
+
+    function checkAssessorConflict(assessorId, date, startTime, endTime, currentBookingId = null) {
+        if (startTime >= endTime) {
+            return { isInvalidTime: true, message: "End time must be after start time." };
+        }
+        const assessorBookings = bookings.filter(b => b.assessorId === assessorId && b.date === date && b.id !== currentBookingId);
+        
+        for (const b of assessorBookings) {
+            if (startTime < b.endTime && endTime > b.startTime) {
+                return b;
+            }
+        }
+        return null;
+    }
+
+    function getTeamMemberName(teamId) {
+        const member = PROJECT_TEAM.find(m => m.id === teamId);
+        return member ? member.name : 'Unknown Team Member';
+    }
+
+    function initializeMockBookings() {
+        const todayStr = formatDateStr(new Date());
+        const dateObj = new Date();
+        
+        const tomDate = new Date(dateObj);
+        tomDate.setDate(tomDate.getDate() + 1);
+        const tomStr = formatDateStr(tomDate);
+
+        const nextDate = new Date(dateObj);
+        nextDate.setDate(nextDate.getDate() + 3);
+        const nextStr = formatDateStr(nextDate);
+
+        const prevDate = new Date(dateObj);
+        prevDate.setDate(prevDate.getDate() - 2);
+        const prevStr = formatDateStr(prevDate);
+
+        bookings = [
+            {
+                id: 'b1',
+                clientName: 'Apex Logistics Hub',
+                assessorId: '1',
+                blockedBy: 'pt1',
+                date: todayStr,
+                startTime: '09:00',
+                endTime: '12:00',
+                location: 'Site A - Warehouse 4',
+                remarks: 'Annual safety & compliance audit.'
+            },
+            {
+                id: 'b2',
+                clientName: 'BioHealth Labs',
+                assessorId: '1',
+                blockedBy: 'pt2',
+                date: todayStr,
+                startTime: '13:30',
+                endTime: '16:30',
+                location: 'Main Lab Building',
+                remarks: 'Cleanroom certification review.'
+            },
+            {
+                id: 'b3',
+                clientName: 'Horizon Energy Corp',
+                assessorId: '2',
+                blockedBy: 'pt3',
+                date: todayStr,
+                startTime: '10:00',
+                endTime: '15:00',
+                location: 'Substation #12',
+                remarks: 'High voltage electrical inspection.'
+            },
+            {
+                id: 'b4',
+                clientName: 'Starlight Retail HQ',
+                assessorId: '3',
+                blockedBy: 'pt4',
+                date: tomStr,
+                startTime: '09:30',
+                endTime: '11:30',
+                location: 'Corporate Office Level 4',
+                remarks: 'Ergonomic & environmental standard review.'
+            },
+            {
+                id: 'b5',
+                clientName: 'Vanguard Manufacturing',
+                assessorId: '4',
+                blockedBy: 'pt1',
+                date: nextStr,
+                startTime: '08:00',
+                endTime: '12:00',
+                location: 'Plant B',
+                remarks: 'ISO 9001 quality audit phase 1.'
+            },
+            {
+                id: 'b6',
+                clientName: 'Nexus Tech Systems',
+                assessorId: '5',
+                blockedBy: 'pt2',
+                date: prevStr,
+                startTime: '11:00',
+                endTime: '14:00',
+                location: 'Online / Zoom',
+                remarks: 'Cybersecurity physical server assessment.'
+            }
+        ];
+    }
+
+    function renderAssessorAvailabilityPanel() {
+        const container = document.getElementById('assessorList');
+        if (!container) return;
+
+        const searchVal = (document.getElementById('assessorSearchInput')?.value || '').toLowerCase();
+        const availabilityFilter = document.getElementById('availabilityFilterSelect')?.value || 'ALL';
+        
+        container.innerHTML = '';
+        const activeDateStr = globalActiveDate;
+        
+        const todayStr = formatDateStr(new Date());
+        const badge = document.getElementById('activeDateBadge');
+        if (badge) {
+            if (activeDateStr === todayStr) {
+                badge.innerText = 'Today';
+                badge.className = 'text-[11px] bg-rose-100 text-rose-700 font-bold px-2.5 py-0.5 rounded-full border border-rose-200';
+            } else {
+                badge.innerText = activeDateStr;
+                badge.className = 'text-[11px] bg-purple-100 text-purple-700 font-bold px-2.5 py-0.5 rounded-full border border-purple-200';
+            }
+        }
+
+        let displayedCount = 0;
+
+        ASSESSORS.forEach(assessor => {
+            const dayBlocks = bookings.filter(b => b.assessorId === assessor.id && b.date === activeDateStr);
+            const isBooked = dayBlocks.length > 0;
+
+            if (searchVal && !assessor.name.toLowerCase().includes(searchVal)) {
+                return;
+            }
+
+            if (availabilityFilter === 'available' && isBooked) return;
+            if (availabilityFilter === 'booked' && !isBooked) return;
+
+            displayedCount++;
+
+            const card = document.createElement('div');
+            card.className = `p-3 rounded-2xl border transition cursor-pointer shadow-xs ${
+                isBooked 
+                    ? 'bg-rose-100/70 border-rose-300 hover:border-rose-400' 
+                    : 'bg-white/90 border-rose-100 hover:border-pink-300 hover:shadow-md'
+            }`;
+
+            const initialsHtml = getAssessorBadgeHtml(assessor.name);
+
+            let blocksSummaryHtml = '';
+            if (isBooked) {
+                blocksSummaryHtml = `
+                    <div class="mt-2 pt-2 border-t border-rose-200/60 space-y-1">
+                        <span class="text-[10px] font-bold text-rose-700 uppercase tracking-wider block">Blocked Slots (${dayBlocks.length})</span>
+                        ${dayBlocks.map(b => `
+                            <div class="text-[11px] bg-white/80 p-1.5 rounded-xl border border-rose-200 space-y-0.5 text-slate-700 font-medium">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-bold truncate max-w-[110px]">${b.clientName}</span>
+                                    <span class="font-mono text-[10px] text-rose-600 font-bold">${b.startTime}-${b.endTime}</span>
+                                </div>
+                                <div class="text-[9px] text-purple-700 font-semibold truncate">
+                                    Blocked by: ${getTeamMemberName(b.blockedBy)}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            } else {
+                blocksSummaryHtml = `
+                    <div class="mt-1 text-[10px] text-emerald-600 font-semibold flex items-center gap-1">
+                        <span>✨ Free all day - Click to schedule</span>
+                    </div>
+                `;
+            }
+
+            card.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2.5 min-w-0">
+                        ${initialsHtml}
+                        <div class="min-w-0">
+                            <h4 class="font-bold text-xs text-slate-800 truncate">${assessor.name}</h4>
+                            <p class="text-[10px] text-slate-500 font-mono truncate">${assessor.phone || 'No phone'}</p>
+                        </div>
+                    </div>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${
+                        isBooked ? 'bg-rose-500 text-white shadow-xs' : 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+                    }">
+                        ${isBooked ? '🔴 Blocked' : '🟢 Available'}
+                    </span>
+                </div>
+                ${blocksSummaryHtml}
+            `;
+
+            card.onclick = () => {
+                openBookingModal(null, { assessorId: assessor.id, date: activeDateStr });
+            };
+
+            container.appendChild(card);
+        });
+
+        const totalCountEl = document.getElementById('totalAssessorsCount');
+        if (totalCountEl) {
+            totalCountEl.innerText = `${displayedCount} Assessor${displayedCount === 1 ? '' : 's'}`;
+        }
+
+        if (displayedCount === 0) {
+            container.innerHTML = `
+                <div class="text-center py-8 text-rose-400 text-xs font-medium bg-rose-50/50 rounded-2xl border border-rose-100 p-4">
+                    No assessors match your search / filter criteria.
+                </div>
+            `;
+        }
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function openAssessorModal(assessorId = null) {
+        const form = document.getElementById('assessorForm');
+        if (form) form.reset();
+
+        if (assessorId) {
+            const a = ASSESSORS.find(item => item.id === assessorId);
+            if (a) {
+                document.getElementById('assessorModalTitle').innerText = 'Edit Assessor';
+                document.getElementById('editingAssessorId').value = a.id;
+                document.getElementById('newAssessorName').value = a.name;
+                document.getElementById('newAssessorPhone').value = a.phone || '';
+            }
+        } else {
+            document.getElementById('assessorModalTitle').innerText = 'Add Assessor';
+            document.getElementById('editingAssessorId').value = '';
+        }
+
+        openModal('assessorModal');
+    }
+
+    function handleAssessorSubmit(e) {
+        e.preventDefault();
+        const editingId = document.getElementById('editingAssessorId').value;
+        const name = document.getElementById('newAssessorName').value.trim();
+        const phone = document.getElementById('newAssessorPhone').value.trim();
+
+        if (!name) return;
+
+        let targetAssessor = null;
+
+        if (editingId) {
+            const idx = ASSESSORS.findIndex(a => a.id === editingId);
+            if (idx !== -1) {
+                ASSESSORS[idx].name = name;
+                ASSESSORS[idx].phone = phone;
+                targetAssessor = ASSESSORS[idx];
+            }
+        } else {
+            const newAssessor = {
+                id: 'assessor_' + Date.now(),
+                name: name,
+                phone: phone
+            };
+            ASSESSORS.push(newAssessor);
+            targetAssessor = newAssessor;
+        }
+
+        if (targetAssessor) syncAssessorToFirestore(targetAssessor);
+
+        closeModal('assessorModal');
+        populateAssessorDropdowns();
+        refreshAllViews();
+    }
+
+    function promptDeleteAssessor(assessorId) {
+        const a = ASSESSORS.find(item => item.id === assessorId);
+        if (!a) return;
+
+        const activeBlocks = bookings.filter(b => b.assessorId === assessorId);
+
+        pendingDeleteId = assessorId;
+        pendingDeleteType = 'assessor';
+
+        const msgEl = document.getElementById('confirmDeleteMessage');
+        if (activeBlocks.length > 0) {
+            msgEl.innerHTML = `⚠️ <strong>${a.name}</strong> has <strong>${activeBlocks.length} schedule block(s)</strong> assigned. Deleting this assessor will also remove their schedule blocks. Continue?`;
+        } else {
+            msgEl.innerText = `Are you sure you want to delete ${a.name} from the assessor registry?`;
+        }
+
+        openModal('confirmDeleteModal');
+    }
+
+    function renderAssessorRegistry() {
+        const tbody = document.getElementById('registryTableBody');
+        if (!tbody) return;
+
+        const searchVal = (document.getElementById('registrySearchInput')?.value || '').toLowerCase();
+        tbody.innerHTML = '';
+
+        const filtered = ASSESSORS.filter(a => 
+            a.name.toLowerCase().includes(searchVal) || 
+            (a.phone && a.phone.toLowerCase().includes(searchVal))
+        );
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-8 text-rose-400">No assessors found in registry matching your search.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        filtered.forEach(assessor => {
+            const totalAssessments = bookings.filter(b => b.assessorId === assessor.id).length;
+            const badgeAvatar = getAssessorBadgeHtml(assessor.name);
+
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-rose-50/50 transition font-medium';
+            tr.innerHTML = `
+                <td class="p-3.5">
+                    <div class="flex items-center space-x-3">
+                        ${badgeAvatar}
+                        <span class="font-bold text-slate-800">${assessor.name}</span>
+                    </div>
+                </td>
+                <td class="p-3.5 font-mono text-slate-700">${assessor.phone || 'N/A'}</td>
+                <td class="p-3.5">
+                    <span class="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 font-bold text-[10px]">
+                        ${totalAssessments} ${totalAssessments === 1 ? 'Assessment' : 'Assessments'}
+                    </span>
+                </td>
+                <td class="p-3.5 text-right space-x-1">
+                    <button onclick="openAssessorModal('${assessor.id}')" class="p-1.5 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-100 transition" title="Edit Assessor">
+                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="promptDeleteAssessor('${assessor.id}')" class="p-1.5 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-100 transition" title="Delete Assessor">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function renderTeamRegistry() {
+        const tbody = document.getElementById('teamTableBody');
+        if (!tbody) return;
+
+        const searchVal = (document.getElementById('teamSearchInput')?.value || '').toLowerCase();
+        tbody.innerHTML = '';
+
+        const filtered = PROJECT_TEAM.filter(m => 
+            m.name.toLowerCase().includes(searchVal) || 
+            (m.role && m.role.toLowerCase().includes(searchVal))
+        );
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="text-center py-8 text-rose-400">No project team members found matching your search.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        filtered.forEach(member => {
+            const blocksCreated = bookings.filter(b => b.blockedBy === member.id).length;
+
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-rose-50/50 transition font-medium';
+            tr.innerHTML = `
+                <td class="p-3.5 font-bold text-slate-800">${member.name}</td>
+                <td class="p-3.5 text-slate-600 font-medium">${member.role || 'Team Member'}</td>
+                <td class="p-3.5">
+                    <span class="px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 font-bold text-[10px]">
+                        ${blocksCreated} ${blocksCreated === 1 ? 'Block' : 'Blocks'}
+                    </span>
+                </td>
+                <td class="p-3.5 text-right space-x-1">
+                    <button onclick="openTeamMemberModal('${member.id}')" class="p-1.5 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-100 transition" title="Edit Team Member">
+                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="promptDeleteTeamMember('${member.id}')" class="p-1.5 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-100 transition" title="Delete Team Member">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function openTeamMemberModal(memberId = null) {
+        const form = document.getElementById('teamMemberForm');
+        if (form) form.reset();
+
+        if (memberId) {
+            const member = PROJECT_TEAM.find(m => m.id === memberId);
+            if (!member) return;
+            document.getElementById('teamMemberModalTitle').innerText = 'Edit Team Member';
+            document.getElementById('editingTeamMemberId').value = member.id;
+            document.getElementById('newTeamMemberName').value = member.name;
+            document.getElementById('newTeamMemberRole').value = member.role || '';
+        } else {
+            document.getElementById('teamMemberModalTitle').innerText = 'Add Team Member';
+            document.getElementById('editingTeamMemberId').value = '';
+        }
+
+        openModal('teamMemberModal');
+    }
+
+    function handleTeamMemberSubmit(e) {
+        e.preventDefault();
+        const editingId = document.getElementById('editingTeamMemberId').value;
+        const name = document.getElementById('newTeamMemberName').value.trim();
+        const role = document.getElementById('newTeamMemberRole').value.trim();
+
+        if (!name) return;
+
+        let targetMember = null;
+
+        if (editingId) {
+            const idx = PROJECT_TEAM.findIndex(m => m.id === editingId);
+            if (idx !== -1) {
+                PROJECT_TEAM[idx].name = name;
+                PROJECT_TEAM[idx].role = role;
+                targetMember = PROJECT_TEAM[idx];
+            }
+        } else {
+            const newMember = {
+                id: 'pt_' + Date.now(),
+                name: name,
+                role: role
+            };
+            PROJECT_TEAM.push(newMember);
+            targetMember = newMember;
+        }
+
+        if (targetMember) syncTeamMemberToFirestore(targetMember);
+
+        closeModal('teamMemberModal');
+        populateAssessorDropdowns();
+        refreshAllViews();
+    }
+
+    function promptDeleteTeamMember(memberId) {
+        const member = PROJECT_TEAM.find(m => m.id === memberId);
+        if (!member) return;
+
+        const activeBlocks = bookings.filter(b => b.blockedBy === memberId);
+
+        pendingDeleteId = memberId;
+        pendingDeleteType = 'teamMember';
+
+        const msgEl = document.getElementById('confirmDeleteMessage');
+        if (activeBlocks.length > 0) {
+            msgEl.innerHTML = `⚠️ <strong>${member.name}</strong> has blocked <strong>${activeBlocks.length} schedule block(s)</strong>. Deleting this member will unassign the "Blocked By" tracker for those blocks. Continue?`;
+        } else {
+            msgEl.innerText = `Are you sure you want to delete ${member.name} from the project team registry?`;
+        }
+
+        openModal('confirmDeleteModal');
+    }
+
+    function setCalendarMode(mode) {
+        calendarMode = mode;
+        ['calModeDay', 'calModeWeek', 'calModeMonth'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) {
+                btn.className = 'px-2.5 py-1 rounded-lg transition text-slate-500';
+            }
+        });
+        const activeBtnId = mode === 'month' ? 'calModeMonth' : mode === 'week' ? 'calModeWeek' : 'calModeDay';
+        const activeBtn = document.getElementById(activeBtnId);
+        if (activeBtn) {
+            activeBtn.className = 'px-2.5 py-1 rounded-lg transition bg-white font-bold text-rose-600 shadow-sm border border-rose-100';
+        }
+        renderCalendar();
+    }
+
+    function navigateCalendar(direction) {
+        if (calendarMode === 'month') {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+        } else if (calendarMode === 'week') {
+            currentDate.setDate(currentDate.getDate() + (direction * 7));
+        } else if (calendarMode === 'day') {
+            currentDate.setDate(currentDate.getDate() + direction);
+        }
+        renderCalendar();
+    }
+
+    function renderCalendar() {
+        const container = document.getElementById('calendarGridContainer');
+        const label = document.getElementById('calendarCurrentLabel');
+        if (!container) return;
+
+        if (calendarMode === 'month') {
+            renderMonthView(container, label);
+        } else if (calendarMode === 'week') {
+            renderWeekView(container, label);
+        } else if (calendarMode === 'day') {
+            renderDayView(container, label);
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function selectCalendarDate(dateStr) {
+        globalActiveDate = dateStr;
+        const gInput = document.getElementById('globalDateFilter');
+        const gInputM = document.getElementById('globalDateFilterMobile');
+        if (gInput) gInput.value = dateStr;
+        if (gInputM) gInputM.value = dateStr;
+        renderAssessorAvailabilityPanel();
+    }
+
+    function handleDateClick(dateStr) {
+        selectCalendarDate(dateStr);
+        const dayBookings = bookings.filter(b => b.date === dateStr);
+        if (dayBookings.length > 0) {
+            openDayBlocksModal(dateStr);
+        } else {
+            openBookingModal(null, { date: dateStr });
+        }
+    }
+
+    function openDayBlocksModal(dateStr) {
+        selectCalendarDate(dateStr);
+        const container = document.getElementById('dayBlocksListContainer');
+        const title = document.getElementById('dayBlocksModalTitle');
+        const subtitle = document.getElementById('dayBlocksModalSubtitle');
+        const addBtn = document.getElementById('addBlockForDayBtn');
+
+        if (!container) return;
+
+        const dateParts = dateStr.split('-');
+        const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+        const formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+        if (title) title.innerText = `Schedule Blocks Overview`;
+        if (subtitle) subtitle.innerText = `📅 ${formattedDate}`;
+
+        if (addBtn) {
+            addBtn.onclick = () => {
+                closeModal('dayBlocksModal');
+                openBookingModal(null, { date: dateStr });
+            };
+        }
+
+        const dayBookings = bookings.filter(b => b.date === dateStr);
+
+        if (dayBookings.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-6 text-rose-400 text-xs font-medium bg-rose-50/50 rounded-2xl border border-rose-100 p-4">
+                    No schedule blocks recorded for this date.
+                </div>
+            `;
+        } else {
+            container.innerHTML = dayBookings.map((b, index) => {
+                const assessor = ASSESSORS.find(a => a.id === b.assessorId);
+                const duration = calculateDuration(b.startTime, b.endTime);
+                const blockedByName = getTeamMemberName(b.blockedBy);
+
+                return `
+                    <div class="p-3.5 rounded-2xl bg-gradient-to-r from-rose-50/80 via-pink-50/50 to-purple-50/30 border border-rose-200 shadow-2xs space-y-2.5 hover:border-rose-300 transition">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <span class="text-[10px] font-extrabold uppercase text-rose-500 tracking-wider block">Block #${index + 1} • Client</span>
+                                <h4 class="font-extrabold text-sm text-slate-800">${b.clientName}</h4>
+                            </div>
+                            <span class="bg-rose-200/80 text-rose-800 text-[10px] font-bold px-2.5 py-0.5 rounded-full font-mono border border-rose-300/50">
+                                ${duration}
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="bg-white/90 p-2 rounded-xl border border-rose-100">
+                                <span class="text-rose-400 text-[9px] uppercase font-bold block">Assessor</span>
+                                <span class="font-bold text-slate-800">${assessor ? assessor.name : 'Unknown'}</span>
+                            </div>
+                            <div class="bg-white/90 p-2 rounded-xl border border-rose-100">
+                                <span class="text-rose-400 text-[9px] uppercase font-bold block">Blocked By</span>
+                                <span class="font-bold text-purple-700">${blockedByName}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center bg-white/90 p-2 rounded-xl border border-rose-100 text-xs">
+                            <div class="font-mono font-bold text-rose-600">⏰ ${b.startTime} - ${b.endTime}</div>
+                            ${b.location ? `<div class="text-slate-600 text-[11px] font-medium truncate max-w-[150px]">📍 ${b.location}</div>` : ''}
+                        </div>
+
+                        ${b.remarks ? `<p class="text-[11px] text-slate-500 italic bg-rose-50/50 p-2 rounded-xl border border-rose-100/60">"${b.remarks}"</p>` : ''}
+
+                        <div class="flex justify-end items-center space-x-2 pt-1.5 border-t border-rose-100/60">
+                            <button onclick="closeModal('dayBlocksModal'); promptDeleteBooking('${b.id}')" class="px-2.5 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-100 rounded-lg transition">
+                                Delete
+                            </button>
+                            <button onclick="closeModal('dayBlocksModal'); openBookingModal('${b.id}')" class="px-3 py-1 bg-white border border-rose-200 text-[11px] font-bold text-slate-700 hover:bg-rose-50 rounded-lg transition shadow-2xs">
+                                Edit
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        openModal('dayBlocksModal');
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function renderMonthView(container, label) {
+        const year = currentDate.getFullYear();
+        const month = currentDate.getMonth();
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        if (label) label.innerText = `${monthNames[month]} ${year}`;
+
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+        const todayStr = formatDateStr(new Date());
+
+        let html = `
+            <div class="grid grid-cols-7 gap-1 mb-2 text-center text-xs font-bold text-rose-700 uppercase tracking-wider bg-rose-50/80 p-2 rounded-xl">
+                <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+            </div>
+            <div class="grid grid-cols-7 gap-2 min-h-[450px]">
+        `;
+
+        for (let i = 0; i < firstDay; i++) {
+            html += `<div class="p-2 rounded-2xl bg-slate-50/40 border border-slate-100/50 min-h-[90px]"></div>`;
+        }
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dObj = new Date(year, month, day);
+            const dateStr = formatDateStr(dObj);
+            const isToday = dateStr === todayStr;
+            const isSelected = dateStr === globalActiveDate;
+
+            const dayBookings = bookings.filter(b => b.date === dateStr);
+
+            html += `
+                <div onclick="handleDateClick('${dateStr}')" title="Click to view all blocks or add a schedule block on ${dateStr}" class="p-2 rounded-2xl border transition cursor-pointer flex flex-col min-h-[95px] ${
+                    isToday ? 'bg-rose-100/60 border-rose-400 font-bold' : isSelected ? 'bg-purple-50/80 border-purple-300' : 'bg-white/80 border-rose-100 hover:border-pink-200'
+                }">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold ${isToday ? 'bg-rose-500 text-white w-6 h-6 rounded-full flex items-center justify-center' : 'text-slate-700'}">${day}</span>
+                        ${dayBookings.length > 0 ? `
+                            <button onclick="event.stopPropagation(); openDayBlocksModal('${dateStr}')" class="text-[9px] bg-rose-100 text-rose-700 hover:bg-rose-200 font-extrabold px-2 py-0.5 rounded-full border border-rose-300/80 shadow-2xs hover:scale-105 transition" title="Click to view all ${dayBookings.length} block(s)">
+                                ${dayBookings.length} block${dayBookings.length > 1 ? 's' : ''}
+                            </button>
+                        ` : ''}
+                    </div>
+                    <div class="space-y-1 flex-1 overflow-y-auto custom-scrollbar max-h-[70px]">
+                        ${dayBookings.map(b => {
+                            const assessor = ASSESSORS.find(a => a.id === b.assessorId);
+                            return `
+                                <div onclick="event.stopPropagation(); openDetailModal('${b.id}')" class="p-1 rounded-lg bg-rose-50 border border-rose-200 text-[10px] text-slate-800 font-semibold truncate hover:bg-rose-100 transition shadow-2xs">
+                                    <div class="font-bold truncate text-rose-700">${b.clientName}</div>
+                                    <div class="text-[9px] text-slate-500 truncate">${assessor ? assessor.name : 'Unknown'} • ${b.startTime}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    function renderWeekView(container, label) {
+        const startOfWeek = new Date(currentDate);
+        startOfWeek.setDate(currentDate.getDate() - currentDate.getDay());
+
+        const endOfWeek = new Date(startOfWeek);
+        endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+        if (label) {
+            label.innerText = `${startOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endOfWeek.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+        }
+
+        const todayStr = formatDateStr(new Date());
+
+        let html = `
+            <div class="grid grid-cols-7 gap-2 h-full min-h-[480px]">
+        `;
+
+        for (let i = 0; i < 7; i++) {
+            const dObj = new Date(startOfWeek);
+            dObj.setDate(startOfWeek.getDate() + i);
+            const dateStr = formatDateStr(dObj);
+            const isToday = dateStr === todayStr;
+
+            const dayBookings = bookings.filter(b => b.date === dateStr);
+
+            html += `
+                <div onclick="handleDateClick('${dateStr}')" title="Click to block schedule on ${dateStr}" class="p-2.5 rounded-2xl border bg-white/80 border-rose-100 flex flex-col cursor-pointer hover:border-pink-300 transition ${isToday ? 'ring-2 ring-rose-400 bg-rose-50/40' : ''}">
+                    <div class="text-center pb-2 border-b border-rose-100 mb-2">
+                        <div class="text-[10px] font-bold uppercase text-rose-400">${dObj.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                        <div class="text-sm font-extrabold text-slate-800">${dObj.getDate()}</div>
+                    </div>
+                    <div class="space-y-1.5 flex-1 overflow-y-auto custom-scrollbar">
+                        ${dayBookings.length === 0 ? '<div class="text-[10px] text-slate-400 text-center py-4 italic">No blocks (Click to add)</div>' : ''}
+                        ${dayBookings.map(b => {
+                            const assessor = ASSESSORS.find(a => a.id === b.assessorId);
+                            return `
+                                <div onclick="event.stopPropagation(); openDetailModal('${b.id}')" class="p-2 rounded-xl bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200 text-xs cursor-pointer hover:shadow-md transition">
+                                    <div class="font-bold text-slate-800 truncate">${b.clientName}</div>
+                                    <div class="text-[10px] font-semibold text-rose-600">${b.startTime} - ${b.endTime}</div>
+                                    <div class="text-[10px] text-slate-500 truncate mt-0.5">👤 ${assessor ? assessor.name : 'Unknown'}</div>
+                                    <div class="text-[9px] text-purple-600 font-medium truncate">By: ${getTeamMemberName(b.blockedBy)}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    function renderDayView(container, label) {
+        const dateStr = formatDateStr(currentDate);
+        if (label) {
+            label.innerText = currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+        }
+
+        const dayBookings = bookings.filter(b => b.date === dateStr);
+
+        let html = `
+            <div class="bg-white/80 rounded-2xl border border-rose-100 p-4 min-h-[480px] flex flex-col space-y-3">
+                <div class="flex justify-between items-center pb-3 border-b border-rose-100">
+                    <h4 class="font-bold text-xs text-rose-700 uppercase tracking-wider">Schedule Blocks for ${dateStr}</h4>
+                    <button onclick="openBookingModal(null, { date: '${dateStr}' })" class="px-3 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition shadow-xs">
+                        + Add Block For This Day
+                    </button>
+                </div>
+        `;
+
+        if (dayBookings.length === 0) {
+            html += `
+                <div class="text-center py-12 text-rose-400 text-xs font-medium">
+                    No schedule blocks recorded for this date.
+                </div>
+            `;
+        } else {
+            html += `<div class="space-y-2.5 overflow-y-auto custom-scrollbar flex-1">`;
+            dayBookings.forEach(b => {
+                const assessor = ASSESSORS.find(a => a.id === b.assessorId);
+                const duration = calculateDuration(b.startTime, b.endTime);
+
+                html += `
+                    <div onclick="openDetailModal('${b.id}')" class="p-3.5 rounded-2xl bg-gradient-to-r from-rose-50/80 via-pink-50/60 to-purple-50/40 border border-rose-200 cursor-pointer hover:border-rose-400 hover:shadow-md transition flex justify-between items-center">
+                        <div class="space-y-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="font-extrabold text-sm text-slate-800">${b.clientName}</span>
+                                <span class="text-[10px] bg-rose-200 text-rose-800 font-bold px-2 py-0.5 rounded-full">${duration}</span>
+                            </div>
+                            <div class="text-xs text-slate-600 font-medium">
+                                Assessor: <strong class="text-slate-800">${assessor ? assessor.name : 'Unknown'}</strong> | Blocked By: <strong class="text-purple-700">${getTeamMemberName(b.blockedBy)}</strong>
+                            </div>
+                            ${b.location ? `<div class="text-[11px] text-slate-500">📍 ${b.location}</div>` : ''}
+                        </div>
+                        <div class="text-right font-mono text-xs font-bold text-rose-600 bg-white px-3 py-1.5 rounded-xl border border-rose-200 shadow-2xs">
+                            ${b.startTime} - ${b.endTime}
+                        </div>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        }
+
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+
+    function populateAssessorDropdowns() {
+        const assessorSelects = [
+            document.getElementById('assessorSelect'),
+            document.getElementById('tableAssessorFilter'),
+            document.getElementById('reportAssessorFilter')
+        ];
+
+        assessorSelects.forEach(el => {
+            if (!el) return;
+            const currentVal = el.value;
+            if (el.id === 'tableAssessorFilter' || el.id === 'reportAssessorFilter') {
+                el.innerHTML = '<option value="ALL">All Assessors</option>';
+            } else {
+                el.innerHTML = '<option value="">-- Select Assessor --</option>';
+            }
+
+            ASSESSORS.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                opt.innerText = a.name;
+                el.appendChild(opt);
+            });
+
+            if (currentVal) el.value = currentVal;
+        });
+
+        const blockedBySelect = document.getElementById('blockedBySelect');
+        if (blockedBySelect) {
+            const currentVal = blockedBySelect.value;
+            blockedBySelect.innerHTML = '<option value="">-- Select Team Member --</option>';
+            PROJECT_TEAM.forEach(member => {
+                const opt = document.createElement('option');
+                opt.value = member.id;
+                opt.innerText = `${member.name} (${member.role || 'Team Member'})`;
+                blockedBySelect.appendChild(opt);
+            });
+            if (currentVal) blockedBySelect.value = currentVal;
+        }
+    }
+
+    function openBookingModal(bookingId = null, defaults = {}) {
+        const form = document.getElementById('bookingForm');
+        form.reset();
+
+        if (bookingId) {
+            const b = bookings.find(item => item.id === bookingId);
+            if (!b) return;
+
+            document.getElementById('modalTitle').innerText = 'Edit Schedule Block';
+            document.getElementById('bookingId').value = b.id;
+            document.getElementById('clientName').value = b.clientName;
+            document.getElementById('blockedBySelect').value = b.blockedBy || '';
+            document.getElementById('assessorSelect').value = b.assessorId;
+            document.getElementById('assessmentDate').value = b.date;
+            document.getElementById('startTime').value = b.startTime;
+            document.getElementById('endTime').value = b.endTime;
+            document.getElementById('bookingLocation').value = b.location || '';
+            document.getElementById('bookingRemarks').value = b.remarks || '';
+        } else {
+            document.getElementById('modalTitle').innerText = 'New Schedule Block';
+            document.getElementById('bookingId').value = '';
+            document.getElementById('assessmentDate').value = defaults.date || globalActiveDate || formatDateStr(new Date());
+            if (defaults.assessorId) {
+                document.getElementById('assessorSelect').value = defaults.assessorId;
+            }
+            document.getElementById('startTime').value = '09:00';
+            document.getElementById('endTime').value = '11:00';
+            if (PROJECT_TEAM.length > 0) {
+                document.getElementById('blockedBySelect').value = PROJECT_TEAM[0].id;
+            }
+        }
+
+        openModal('bookingModal');
+    }
+
+    function handleBookingSubmit(event) {
+        event.preventDefault();
+
+        const bookingId = document.getElementById('bookingId').value;
+        const clientName = document.getElementById('clientName').value.trim();
+        const blockedBy = document.getElementById('blockedBySelect').value;
+        const assessorId = document.getElementById('assessorSelect').value;
+        const date = document.getElementById('assessmentDate').value;
+        const startTime = document.getElementById('startTime').value;
+        const endTime = document.getElementById('endTime').value;
+        const location = document.getElementById('bookingLocation').value.trim();
+        const remarks = document.getElementById('bookingRemarks').value.trim();
+
+        if (!blockedBy) {
+            alertModal("Team Member Required", "Please select who from the project team blocked this assessor.");
+            return;
+        }
+
+        const conflict = checkAssessorConflict(assessorId, date, startTime, endTime, bookingId || null);
+
+        if (conflict) {
+            if (conflict.isInvalidTime) {
+                alertModal("Invalid Time Slot", conflict.message);
+                return;
+            }
+
+            const assessor = ASSESSORS.find(a => a.id === assessorId);
+            const assessorName = assessor ? assessor.name : 'Selected assessor';
+            
+            document.getElementById('conflictMessage').innerText = "This assessor is already booked during the selected time.";
+            document.getElementById('conflictDetails').innerHTML = `
+                <div class="font-bold text-slate-800">Assessor: ${assessorName}</div>
+                <div>Conflicting Block: <strong>${conflict.clientName}</strong></div>
+                <div>Blocked By: <strong>${getTeamMemberName(conflict.blockedBy)}</strong></div>
+                <div>Blocked Window: <strong>${conflict.startTime} - ${conflict.endTime}</strong> on <strong>${conflict.date}</strong></div>
+            `;
+            openModal('conflictModal');
+            return;
+        }
+
+        let targetBooking = null;
+
+        if (bookingId) {
+            const idx = bookings.findIndex(b => b.id === bookingId);
+            if (idx !== -1) {
+                bookings[idx] = { id: bookingId, clientName, assessorId, blockedBy, date, startTime, endTime, location, remarks };
+                targetBooking = bookings[idx];
+            }
+        } else {
+            const newId = 'b_' + Date.now();
+            targetBooking = { id: newId, clientName, assessorId, blockedBy, date, startTime, endTime, location, remarks };
+            bookings.push(targetBooking);
+        }
+
+        if (targetBooking) syncBookingToFirestore(targetBooking);
+
+        closeModal('bookingModal');
+        refreshAllViews();
+    }
+
+    function openDetailModal(bookingId) {
+        const b = bookings.find(item => item.id === bookingId);
+        if (!b) return;
+
+        const assessor = ASSESSORS.find(a => a.id === b.assessorId);
+        const duration = calculateDuration(b.startTime, b.endTime);
+
+        document.getElementById('detailClient').innerText = b.clientName;
+        document.getElementById('detailDurationBadge').innerText = duration;
+        document.getElementById('detailAssessor').innerText = assessor ? assessor.name : 'Unknown';
+        document.getElementById('detailBlockedBy').innerText = getTeamMemberName(b.blockedBy);
+        document.getElementById('detailDate').innerText = b.date;
+        document.getElementById('detailTime').innerText = `${b.startTime} - ${b.endTime}`;
+        document.getElementById('detailLocation').innerText = b.location || 'N/A';
+        document.getElementById('detailRemarks').innerText = b.remarks || 'None provided';
+
+        const editBtn = document.getElementById('editBookingBtn');
+        editBtn.onclick = () => {
+            closeModal('detailModal');
+            openBookingModal(bookingId);
+        };
+
+        const deleteBtn = document.getElementById('deleteBookingBtn');
+        deleteBtn.onclick = () => {
+            closeModal('detailModal');
+            promptDeleteBooking(bookingId);
+        };
+
+        openModal('detailModal');
+    }
+
+    function promptDeleteBooking(bookingId) {
+        pendingDeleteId = bookingId;
+        pendingDeleteType = 'booking';
+        document.getElementById('confirmDeleteMessage').innerText = "Are you sure you want to delete this schedule block? This action cannot be undone.";
+        openModal('confirmDeleteModal');
+    }
+
+    function renderBookingsTable() {
+        const tbody = document.getElementById('bookingsTableBody');
+        if (!tbody) return;
+
+        const search = (document.getElementById('tableSearchInput')?.value || '').toLowerCase();
+        const assessorFilter = document.getElementById('tableAssessorFilter')?.value || 'ALL';
+
+        tbody.innerHTML = '';
+
+        let filtered = bookings.filter(b => {
+            const assessor = ASSESSORS.find(a => a.id === b.assessorId);
+            const assessorName = assessor ? assessor.name.toLowerCase() : '';
+            const blockedByName = getTeamMemberName(b.blockedBy).toLowerCase();
+
+            const matchesSearch = b.clientName.toLowerCase().includes(search) ||
+                                  assessorName.includes(search) ||
+                                  blockedByName.includes(search) ||
+                                  (b.remarks && b.remarks.toLowerCase().includes(search)) ||
+                                  (b.location && b.location.toLowerCase().includes(search));
+            
+            const matchesAssessor = assessorFilter === 'ALL' || b.assessorId === assessorFilter;
+
+            return matchesSearch && matchesAssessor;
+        });
+
+        filtered.sort((a, b) => b.date.localeCompare(a.date));
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center py-8 text-rose-400">No schedule blocks found matching your criteria.</td>
+                </tr>
+            `;
+            return;
+        }
+
+        filtered.forEach(b => {
+            const assessor = ASSESSORS.find(a => a.id === b.assessorId);
+            const duration = calculateDuration(b.startTime, b.endTime);
+
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-rose-50/50 transition font-medium';
+            tr.innerHTML = `
+                <td class="p-3 font-bold text-slate-800">${b.clientName}</td>
+                <td class="p-3 text-slate-700">
+                    <div>${assessor ? assessor.name : 'Unknown'}</div>
+                    <div class="text-[10px] text-purple-600 font-semibold">Blocked by: ${getTeamMemberName(b.blockedBy)}</div>
+                </td>
+                <td class="p-3 font-mono text-slate-600">${b.date}</td>
+                <td class="p-3 font-mono text-rose-600 font-bold">${b.startTime} - ${b.endTime}</td>
+                <td class="p-3 text-slate-500">${duration}</td>
+                <td class="p-3 text-slate-600 truncate max-w-[150px]">${b.location || '-'}</td>
+                <td class="p-3 text-slate-400 italic truncate max-w-[150px]">${b.remarks || '-'}</td>
+                <td class="p-3 text-right space-x-1">
+                    <button onclick="openDetailModal('${b.id}')" class="p-1.5 text-rose-400 hover:text-rose-700 rounded-lg hover:bg-rose-100 transition" title="View / Edit">
+                        <i data-lucide="eye" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="promptDeleteBooking('${b.id}')" class="p-1.5 text-rose-400 hover:text-rose-700 rounded-lg hover:bg-rose-100 transition" title="Delete">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    document.getElementById('confirmDeleteBtn').onclick = () => {
+        if (!pendingDeleteId) return;
+
+        if (pendingDeleteType === 'booking') {
+            bookings = bookings.filter(b => b.id !== pendingDeleteId);
+            deleteBookingFromFirestore(pendingDeleteId);
+        } else if (pendingDeleteType === 'assessor') {
+            ASSESSORS = ASSESSORS.filter(a => a.id !== pendingDeleteId);
+            deleteAssessorFromFirestore(pendingDeleteId);
+
+            // Also clean up associated schedule blocks
+            const blocksToDelete = bookings.filter(b => b.assessorId === pendingDeleteId);
+            blocksToDelete.forEach(b => deleteBookingFromFirestore(b.id));
+            bookings = bookings.filter(b => b.assessorId !== pendingDeleteId);
+
+            populateAssessorDropdowns();
+        } else if (pendingDeleteType === 'teamMember') {
+            PROJECT_TEAM = PROJECT_TEAM.filter(m => m.id !== pendingDeleteId);
+            deleteTeamMemberFromFirestore(pendingDeleteId);
+            populateAssessorDropdowns();
+        }
+
+        pendingDeleteId = null;
+        closeModal('confirmDeleteModal');
+        refreshAllViews();
+    };
+
+    function switchView(viewName) {
+        currentView = viewName;
+
+        document.getElementById('viewCalendarSection')?.classList.add('hidden');
+        document.getElementById('viewTableSection')?.classList.add('hidden');
+        document.getElementById('viewReportsSection')?.classList.add('hidden');
+        document.getElementById('viewRegistrySection')?.classList.add('hidden');
+        document.getElementById('viewTeamRegistrySection')?.classList.add('hidden');
+        document.getElementById('calendarViewControls')?.classList.add('hidden');
+
+        ['tabCalendar', 'tabTable', 'tabReports', 'tabRegistry', 'tabTeamRegistry'].forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) btn.className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:text-rose-600 transition';
+        });
+
+        if (viewName === 'calendar') {
+            document.getElementById('viewCalendarSection')?.classList.remove('hidden');
+            document.getElementById('calendarViewControls')?.classList.remove('hidden');
+            document.getElementById('tabCalendar').className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-rose-600 shadow-sm border border-rose-100';
+            renderCalendar();
+        } else if (viewName === 'table') {
+            document.getElementById('viewTableSection')?.classList.remove('hidden');
+            document.getElementById('tabTable').className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-rose-600 shadow-sm border border-rose-100';
+            renderBookingsTable();
+        } else if (viewName === 'reports') {
+            document.getElementById('viewReportsSection')?.classList.remove('hidden');
+            document.getElementById('tabReports').className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-rose-600 shadow-sm border border-rose-100';
+        } else if (viewName === 'registry') {
+            document.getElementById('viewRegistrySection')?.classList.remove('hidden');
+            document.getElementById('tabRegistry').className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-rose-600 shadow-sm border border-rose-100';
+            renderAssessorRegistry();
+        } else if (viewName === 'teamRegistry') {
+            document.getElementById('viewTeamRegistrySection')?.classList.remove('hidden');
+            document.getElementById('tabTeamRegistry').className = 'flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition bg-white text-rose-600 shadow-sm border border-rose-100';
+            renderTeamRegistry();
+        }
+    }
+
+    function refreshAllViews() {
+        renderAssessorAvailabilityPanel();
+        if (currentView === 'calendar') renderCalendar();
+        if (currentView === 'table') renderBookingsTable();
+        if (currentView === 'registry') renderAssessorRegistry();
+        if (currentView === 'teamRegistry') renderTeamRegistry();
+    }
+
+    function toggleReportCustomRange() {
+        const preset = document.querySelector('input[name="reportPreset"]:checked')?.value;
+        const container = document.getElementById('customRangeContainer');
+        if (container) {
+            if (preset === 'custom') {
+                container.classList.remove('hidden');
+                container.classList.add('grid');
+            } else {
+                container.classList.add('hidden');
+                container.classList.remove('grid');
+            }
+        }
+    }
+
+    function generateAndExportReport() {
+        const preset = document.querySelector('input[name="reportPreset"]:checked')?.value || 'monthly';
+        const assessorFilter = document.getElementById('reportAssessorFilter')?.value || 'ALL';
+        const format = document.getElementById('reportFormat')?.value || 'xlsx';
+
+        let filtered = [...bookings];
+
+        if (assessorFilter !== 'ALL') {
+            filtered = filtered.filter(b => b.assessorId === assessorFilter);
+        }
+
+        const now = new Date();
+        if (preset === 'monthly') {
+            const currentYearMonth = formatDateStr(now).substring(0, 7);
+            filtered = filtered.filter(b => b.date.startsWith(currentYearMonth));
+        } else if (preset === 'yearly') {
+            const currentYear = now.getFullYear().toString();
+            filtered = filtered.filter(b => b.date.startsWith(currentYear));
+        } else if (preset === 'custom') {
+            const start = document.getElementById('reportStartDate')?.value;
+            const end = document.getElementById('reportEndDate')?.value;
+            if (start) filtered = filtered.filter(b => b.date >= start);
+            if (end) filtered = filtered.filter(b => b.date <= end);
+        }
+
+        if (filtered.length === 0) {
+            alertModal("No Records Found", "There are no schedule blocks matching your selected report filter parameters.");
+            return;
+        }
+
+        const reportRows = filtered.map(b => {
+            const assessor = ASSESSORS.find(a => a.id === b.assessorId);
+            return {
+                'Assessor Name': assessor ? assessor.name : 'Unknown',
+                'Blocked By': getTeamMemberName(b.blockedBy),
+                'Client Name': b.clientName,
+                'Assessment Date': b.date,
+                'Start Time': b.startTime,
+                'End Time': b.endTime,
+                'Duration': calculateDuration(b.startTime, b.endTime),
+                'Location': b.location || 'N/A',
+                'Remarks': b.remarks || ''
+            };
+        });
+
+        const filename = `Assessor_Tracker_Report_${preset}_${formatDateStr(now)}`;
+
+        if (format === 'xlsx' && window.XLSX) {
+            const worksheet = XLSX.utils.json_to_sheet(reportRows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Assessments");
+            XLSX.writeFile(workbook, `${filename}.xlsx`);
+        } else if (format === 'csv' && window.XLSX) {
+            const worksheet = XLSX.utils.json_to_sheet(reportRows);
+            const csvOutput = XLSX.utils.sheet_to_csv(worksheet);
+            const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `${filename}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } else if (format === 'pdf' && window.jspdf) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape' });
+
+            doc.setFontSize(16);
+            doc.text("Assessor Tracker - Schedule Report", 14, 15);
+            doc.setFontSize(10);
+            doc.text(`Generated on: ${new Date().toLocaleString()} | Preset: ${preset}`, 14, 22);
+
+            const tableHeaders = [["Assessor Name", "Blocked By", "Client Name", "Date", "Start Time", "End Time", "Duration", "Location"]];
+            const tableData = reportRows.map(r => [
+                r['Assessor Name'],
+                r['Blocked By'],
+                r['Client Name'],
+                r['Assessment Date'],
+                r['Start Time'],
+                r['End Time'],
+                r['Duration'],
+                r['Location']
+            ]);
+
+            doc.autoTable({
+                head: tableHeaders,
+                body: tableData,
+                startY: 28,
+                theme: 'striped',
+                headStyles: { fillColor: [244, 63, 94] },
+                styles: { fontSize: 8 }
+            });
+
+            doc.save(`${filename}.pdf`);
+        }
+    }
+
+    window.onload = function() {
+    populateAssessorDropdowns();
+
+        const todayStr = formatDateStr(new Date());
+        if (document.getElementById('globalDateFilter')) document.getElementById('globalDateFilter').value = todayStr;
+        if (document.getElementById('globalDateFilterMobile')) document.getElementById('globalDateFilterMobile').value = todayStr;
+        globalActiveDate = todayStr;
+
+        const syncDateFilter = (val) => {
+            globalActiveDate = val;
+            if (document.getElementById('globalDateFilter')) document.getElementById('globalDateFilter').value = val;
+            if (document.getElementById('globalDateFilterMobile')) document.getElementById('globalDateFilterMobile').value = val;
+            renderAssessorAvailabilityPanel();
+        };
+
+        document.getElementById('globalDateFilter')?.addEventListener('change', (e) => syncDateFilter(e.target.value));
+        document.getElementById('globalDateFilterMobile')?.addEventListener('change', (e) => syncDateFilter(e.target.value));
+        document.getElementById('assessorSearchInput')?.addEventListener('input', () => renderAssessorAvailabilityPanel());
+        document.getElementById('availabilityFilterSelect')?.addEventListener('change', () => renderAssessorAvailabilityPanel());
+
+        document.getElementById('tableSearchInput')?.addEventListener('input', () => renderBookingsTable());
+        document.getElementById('tableAssessorFilter')?.addEventListener('change', () => renderBookingsTable());
+
+        document.getElementById('registrySearchInput')?.addEventListener('input', () => renderAssessorRegistry());
+        document.getElementById('teamSearchInput')?.addEventListener('input', () => renderTeamRegistry());
+
+        if (document.getElementById('calPrevBtn')) document.getElementById('calPrevBtn').onclick = () => navigateCalendar(-1);
+        if (document.getElementById('calNextBtn')) document.getElementById('calNextBtn').onclick = () => navigateCalendar(1);
+        if (document.getElementById('calTodayBtn')) document.getElementById('calTodayBtn').onclick = () => {
+            currentDate = new Date();
+            renderCalendar();
+        };
+
+        refreshAllViews();
+    };
+</script>
+</body>
+</html>
+    // Expose module functions globally for inline HTML events
+    window.openModal = openModal;
+    window.closeModal = closeModal;
+    window.switchView = switchView;
+    window.setCalendarMode = setCalendarMode;
+    window.navigateCalendar = navigateCalendar;
+    window.selectCalendarDate = selectCalendarDate;
+    window.handleDateClick = handleDateClick;
+    window.openDayBlocksModal = openDayBlocksModal;
+    window.openBookingModal = openBookingModal;
+    window.handleBookingSubmit = handleBookingSubmit;
+    window.openDetailModal = openDetailModal;
+    window.promptDeleteBooking = promptDeleteBooking;
+    window.openAssessorModal = openAssessorModal;
+    window.handleAssessorSubmit = handleAssessorSubmit;
+    window.promptDeleteAssessor = promptDeleteAssessor;
+    window.openTeamMemberModal = openTeamMemberModal;
+    window.handleTeamMemberSubmit = handleTeamMemberSubmit;
+    window.promptDeleteTeamMember = promptDeleteTeamMember;
+    window.toggleReportCustomRange = toggleReportCustomRange;
+    window.generateAndExportReport = generateAndExportReport;
+
+   window.onload = function() {
+    populateAssessorDropdowns();
+
+        const todayStr = formatDateStr(new Date());
+        if (document.getElementById('globalDateFilter')) document.getElementById('globalDateFilter').value = todayStr;
+        if (document.getElementById('globalDateFilterMobile')) document.getElementById('globalDateFilterMobile').value = todayStr;
+        globalActiveDate = todayStr;
+
+        const syncDateFilter = (val) => {
+            globalActiveDate = val;
+            if (document.getElementById('globalDateFilter')) document.getElementById('globalDateFilter').value = val;
+            if (document.getElementById('globalDateFilterMobile')) document.getElementById('globalDateFilterMobile').value = val;
+            renderAssessorAvailabilityPanel();
+        };
+
+        document.getElementById('globalDateFilter')?.addEventListener('change', (e) => syncDateFilter(e.target.value));
+        document.getElementById('globalDateFilterMobile')?.addEventListener('change', (e) => syncDateFilter(e.target.value));
+        document.getElementById('assessorSearchInput')?.addEventListener('input', () => renderAssessorAvailabilityPanel());
+        document.getElementById('availabilityFilterSelect')?.addEventListener('change', () => renderAssessorAvailabilityPanel());
+
+        document.getElementById('tableSearchInput')?.addEventListener('input', () => renderBookingsTable());
+        document.getElementById('tableAssessorFilter')?.addEventListener('change', () => renderBookingsTable());
+
+        document.getElementById('registrySearchInput')?.addEventListener('input', () => renderAssessorRegistry());
+        document.getElementById('teamSearchInput')?.addEventListener('input', () => renderTeamRegistry());
+
+        if (document.getElementById('calPrevBtn')) document.getElementById('calPrevBtn').onclick = () => navigateCalendar(-1);
+        if (document.getElementById('calNextBtn')) document.getElementById('calNextBtn').onclick = () => navigateCalendar(1);
+        if (document.getElementById('calTodayBtn')) document.getElementById('calTodayBtn').onclick = () => {
+            currentDate = new Date();
+            renderCalendar();
+        };
+
+        refreshAllViews();
+    };
+</script>
+</body>
+</html>
