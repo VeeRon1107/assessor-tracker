@@ -616,12 +616,7 @@
     const BOOKINGS_COL = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
 
     // --- Application State ---
-    let PROJECT_TEAM = [
-        { id: 'pt1', name: 'Emma Watson', role: 'Project Lead' },
-        { id: 'pt2', name: 'Sophia Turner', role: 'Assessment Coordinator' },
-        { id: 'pt3', name: 'Olivia Davis', role: 'Operations Manager' },
-        { id: 'pt4', name: 'Mia Johnson', role: 'Resource Planner' }
-    ];
+    let PROJECT_TEAM = [];
 
     let bookings = [];
     let currentView = 'calendar'; // 'calendar', 'table', 'reports', 'teamRegistry'
@@ -630,6 +625,7 @@
     let globalActiveDate = new Date().toISOString().split('T')[0];
     let currentSelectedAssessors = []; // Form temporary multi-assessor list
     let pendingDeleteId = null;
+    let pendingDeleteType = null; // 'booking' or 'team'
     let sidePanelTab = 'upcoming'; // 'upcoming' or 'completed'
 
     function setSidePanelTab(tab) {
@@ -657,11 +653,9 @@
         if (!currentUser) return;
 
         onSnapshot(TEAM_COL, (snapshot) => {
-            if (!snapshot.empty) {
-                PROJECT_TEAM = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                populateTeamDropdowns();
-                refreshAllViews();
-            }
+            PROJECT_TEAM = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            populateTeamDropdowns();
+            refreshAllViews();
         }, err => console.log("Team snapshot listener notice:", err));
 
         onSnapshot(BOOKINGS_COL, (snapshot) => {
@@ -943,7 +937,7 @@
         if (filtered.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="4" class="text-center py-8 text-rose-400">No project team members found matching your search.</td>
+                    <td colspan="4" class="text-center py-8 text-rose-400">No project team members registered yet. Click "+ Add Team Member" to add team members.</td>
                 </tr>
             `;
             return;
@@ -1038,6 +1032,7 @@
         if (!member) return;
 
         pendingDeleteId = memberId;
+        pendingDeleteType = 'team';
 
         const msgEl = document.getElementById('confirmDeleteMessage');
         msgEl.innerText = `Are you sure you want to delete ${member.name} from the project team registry?`;
@@ -1530,6 +1525,7 @@
 
     function promptDeleteBooking(bookingId) {
         pendingDeleteId = bookingId;
+        pendingDeleteType = 'booking';
         document.getElementById('confirmDeleteMessage').innerText = "Are you sure you want to delete this schedule block? This action cannot be undone.";
         openModal('confirmDeleteModal');
     }
@@ -1599,10 +1595,17 @@
         confirmDeleteBtn.onclick = () => {
             if (!pendingDeleteId) return;
 
-            bookings = bookings.filter(b => b.id !== pendingDeleteId);
-            deleteBookingFromFirestore(pendingDeleteId);
+            if (pendingDeleteType === 'team') {
+                PROJECT_TEAM = PROJECT_TEAM.filter(m => m.id !== pendingDeleteId);
+                deleteTeamMemberFromFirestore(pendingDeleteId);
+                populateTeamDropdowns();
+            } else {
+                bookings = bookings.filter(b => b.id !== pendingDeleteId);
+                deleteBookingFromFirestore(pendingDeleteId);
+            }
 
             pendingDeleteId = null;
+            pendingDeleteType = null;
             closeModal('confirmDeleteModal');
             refreshAllViews();
         };
