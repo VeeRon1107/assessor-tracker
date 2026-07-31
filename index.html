@@ -531,7 +531,7 @@
                 <i data-lucide="alert-circle" class="w-6 h-6 text-white"></i>
             </div>
             <div>
-                <h3 class="font-bold text-base">Assessor Double-Block Conflict</h3>
+                <h3 class="font-bold text-base" id="conflictModalHeading">Assessor Double-Block Conflict</h3>
                 <p class="text-xs text-rose-100 mt-0.5">Assessor double-booking protection system.</p>
             </div>
         </div>
@@ -575,55 +575,65 @@
     import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-    // Firebase Config
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'assessor-tracker-app';
-    const rawFirebaseConfig = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
-    const firebaseConfig = rawFirebaseConfig 
-        ? (typeof rawFirebaseConfig === 'string' ? JSON.parse(rawFirebaseConfig) : rawFirebaseConfig)
-        : {
-            apiKey: "AIzaSyDtigAEnx2fdMxvPYU7Ovp3mw4rXdQCEKg",
-            authDomain: "internal-assessor-tracker.firebaseapp.com",
-            projectId: "internal-assessor-tracker",
-            storageBucket: "internal-assessor-tracker.firebasestorage.app",
-            messagingSenderId: "614503514428",
-            appId: "1:614503514428:web:f6749c4d89f5bb0da01e39",
-            measurementId: "G-8S00TM80NZ"
-        };
+    // Official Firebase Project Config
+    const firebaseConfig = {
+        apiKey: "AIzaSyDtigAEnx2fdMxvPYU7Ovp3mw4rXdQCEKg",
+        authDomain: "internal-assessor-tracker.firebaseapp.com",
+        projectId: "internal-assessor-tracker",
+        storageBucket: "internal-assessor-tracker.firebasestorage.app",
+        messagingSenderId: "614503514428",
+        appId: "1:614503514428:web:f6749c4d89f5bb0da01e39",
+        measurementId: "G-8S00TM80NZ"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
 
     let currentUser = null;
+    let isListenersInitialized = false;
 
-    // Authenticate user before querying Firestore
+    // Start Firestore listeners immediately so reads/writes work even if Auth is disabled or restricted
+    function ensureRealtimeListeners() {
+        if (!isListenersInitialized) {
+            isListenersInitialized = true;
+            setupRealtimeListeners();
+        }
+    }
+
+    // Authenticate user gracefully without blocking the application
     const authToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
     if (authToken) {
-        signInWithCustomToken(auth, authToken).catch(() => signInAnonymously(auth));
+        signInWithCustomToken(auth, authToken)
+            .catch(() => signInAnonymously(auth))
+            .catch(handleAuthError);
     } else {
-        signInAnonymously(auth).catch((err) => console.log("Anonymous auth fallback:", err));
+        signInAnonymously(auth).catch(handleAuthError);
+    }
+
+    function handleAuthError(err) {
+        console.warn("Firebase Auth Notice:", err.code || err);
+        // Fallback: start realtime listeners even if anonymous auth fails/disabled in Console
+        ensureRealtimeListeners();
     }
 
     onAuthStateChanged(auth, (user) => {
         currentUser = user;
-        if (user) {
-            setupRealtimeListeners();
-        }
+        ensureRealtimeListeners();
     });
 
-    // Firestore Collection references
-    const TEAM_COL = collection(db, 'artifacts', appId, 'public', 'data', 'projectTeam');
-    const BOOKINGS_COL = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
+    // Directly use root collections so they show up at the top level in Firebase Console
+    const TEAM_COL = collection(db, 'projectTeam');
+    const BOOKINGS_COL = collection(db, 'bookings');
 
     // --- Application State ---
     let PROJECT_TEAM = [];
-
     let bookings = [];
     let currentView = 'calendar'; // 'calendar', 'table', 'reports', 'teamRegistry'
     let calendarMode = 'month'; // 'month', 'week', 'day'
     let currentDate = new Date();
     let globalActiveDate = new Date().toISOString().split('T')[0];
-    let currentSelectedAssessors = []; // Form temporary multi-assessor list
+    let currentSelectedAssessors = []; 
     let pendingDeleteId = null;
     let pendingDeleteType = null; // 'booking' or 'team'
     let sidePanelTab = 'upcoming'; // 'upcoming' or 'completed'
@@ -649,54 +659,63 @@
     }
     window.setSidePanelTab = setSidePanelTab;
 
-    function setupRealtimeListeners() {
-        if (!currentUser) return;
+    function handleFirebaseError(err, actionName) {
+        console.error(`Firebase ${actionName} error:`, err);
+        if (err.code === 'permission-denied') {
+            alertModal(
+                "Firebase Permission Error",
+                "Your Cloud Firestore Rules are blocking read/write access! Please go to Firebase Console > Firestore Database > Rules tab, change rules to 'allow read, write: if true;', and click Publish."
+            );
+        } else if (err.code === 'auth/operation-not-allowed' || err.code === 'auth/admin-restricted-operation') {
+            alertModal(
+                "Firebase Auth Error",
+                "Anonymous authentication is disabled in your Firebase project! Please go to Firebase Console > Authentication > Sign-in method, enable 'Anonymous', and click Save."
+            );
+        }
+    }
 
+    function setupRealtimeListeners() {
         onSnapshot(TEAM_COL, (snapshot) => {
             PROJECT_TEAM = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             populateTeamDropdowns();
             refreshAllViews();
-        }, err => console.log("Team snapshot listener notice:", err));
+        }, err => handleFirebaseError(err, "Team Listener"));
 
         onSnapshot(BOOKINGS_COL, (snapshot) => {
             bookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             refreshAllViews();
-        }, err => console.log("Bookings snapshot listener notice:", err));
+        }, err => handleFirebaseError(err, "Bookings Listener"));
     }
 
     async function syncTeamMemberToFirestore(memberData) {
-        if (!currentUser) return;
         try {
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projectTeam', memberData.id), memberData);
+            await setDoc(doc(TEAM_COL, memberData.id), memberData);
         } catch (e) {
-            console.error("Firestore sync error:", e);
+            handleFirebaseError(e, "Saving Team Member");
         }
     }
 
     async function deleteTeamMemberFromFirestore(id) {
-        if (!currentUser) return;
         try {
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'projectTeam', id));
+            await deleteDoc(doc(TEAM_COL, id));
         } catch (e) {
-            console.error("Firestore delete error:", e);
+            handleFirebaseError(e, "Deleting Team Member");
         }
     }
 
     async function syncBookingToFirestore(bookingData) {
-        if (!currentUser) return;
         try {
-            await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bookings', bookingData.id), bookingData);
+            await setDoc(doc(BOOKINGS_COL, bookingData.id), bookingData);
         } catch (e) {
-            console.error("Firestore sync error:", e);
+            handleFirebaseError(e, "Saving Schedule Block");
         }
     }
 
     async function deleteBookingFromFirestore(id) {
-        if (!currentUser) return;
         try {
-            await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'bookings', id));
+            await deleteDoc(doc(BOOKINGS_COL, id));
         } catch (e) {
-            console.error("Firestore delete error:", e);
+            handleFirebaseError(e, "Deleting Schedule Block");
         }
     }
 
@@ -733,6 +752,8 @@
     window.closeModal = closeModal;
 
     function alertModal(title, message) {
+        const heading = document.getElementById('conflictModalHeading');
+        if (heading) heading.innerText = "Notice";
         document.getElementById('conflictMessage').innerText = title;
         document.getElementById('conflictDetails').innerHTML = `<p class="text-xs text-slate-600">${message}</p>`;
         openModal('conflictModal');
@@ -770,11 +791,6 @@
         return null;
     }
 
-    function initializeMockBookings() {
-        // Starts with a clean slate; user bookings sync dynamically from Firestore
-        bookings = [];
-    }
-
     function renderAssessorAvailabilityPanel() {
         const container = document.getElementById('assessorList');
         if (!container) return;
@@ -798,7 +814,6 @@
             }
         }
 
-        // Filter bookings based on active side panel tab
         let targetBookings = [];
         if (sidePanelTab === 'upcoming') {
             targetBookings = bookings.filter(b => {
@@ -807,7 +822,6 @@
             });
             targetBookings.sort((a, b) => normalizeDateStr(a.date).localeCompare(normalizeDateStr(b.date)));
         } else {
-            // Completed Assessors: Past dates (normDate < activeDateStr)
             targetBookings = bookings.filter(b => {
                 const normDate = normalizeDateStr(b.date);
                 return normDate < activeDateStr;
@@ -822,7 +836,6 @@
             const normDate = normalizeDateStr(b.date);
             const blockedByName = getTeamMemberName(b.blockedBy);
 
-            // Filter search by client name, assessor names, or team member name
             if (searchVal) {
                 const matchClient = b.clientName.toLowerCase().includes(searchVal);
                 const matchAssessor = bAssessors.some(a => a.toLowerCase().includes(searchVal));
@@ -870,7 +883,6 @@
                     </div>
                 `;
             } else {
-                // Completed tab card
                 card.className = 'p-3 rounded-2xl border border-emerald-200/80 bg-emerald-50/40 transition shadow-xs hover:border-emerald-300 cursor-pointer hover:shadow-md';
                 card.onclick = () => openDetailModal(b.id);
 
@@ -937,7 +949,7 @@
         if (filtered.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="4" class="text-center py-8 text-rose-400">No project team members registered yet. Click "+ Add Team Member" to add team members.</td>
+                    <td colspan="4" class="text-center py-8 text-rose-400">No project team members registered yet. Click "+ Add Team Member" to register team members.</td>
                 </tr>
             `;
             return;
@@ -1015,7 +1027,6 @@
                 name: name,
                 role: role
             };
-            PROJECT_TEAM.push(newMember);
             targetMember = newMember;
         }
 
@@ -1443,7 +1454,6 @@
         const date = document.getElementById('assessmentDate').value;
         const remarks = document.getElementById('bookingRemarks').value.trim();
 
-        // Check if user has an un-added assessor string typed in input
         const unaddedAssessor = document.getElementById('assessorInput')?.value.trim();
         if (unaddedAssessor && !currentSelectedAssessors.includes(unaddedAssessor)) {
             currentSelectedAssessors.push(unaddedAssessor);
@@ -1460,7 +1470,6 @@
             return;
         }
 
-        // Multi-assessor conflict check
         const conflict = checkMultiAssessorConflict(currentSelectedAssessors, date, bookingId || null);
 
         if (conflict) {
@@ -1479,13 +1488,11 @@
         if (bookingId) {
             const idx = bookings.findIndex(b => b.id === bookingId);
             if (idx !== -1) {
-                bookings[idx] = { id: bookingId, clientName, assessors: [...currentSelectedAssessors], blockedBy, date, remarks };
-                targetBooking = bookings[idx];
+                targetBooking = { id: bookingId, clientName, assessors: [...currentSelectedAssessors], blockedBy, date, remarks };
             }
         } else {
             const newId = 'b_' + Date.now();
             targetBooking = { id: newId, clientName, assessors: [...currentSelectedAssessors], blockedBy, date, remarks };
-            bookings.push(targetBooking);
         }
 
         if (targetBooking) syncBookingToFirestore(targetBooking);
@@ -1596,11 +1603,8 @@
             if (!pendingDeleteId) return;
 
             if (pendingDeleteType === 'team') {
-                PROJECT_TEAM = PROJECT_TEAM.filter(m => m.id !== pendingDeleteId);
                 deleteTeamMemberFromFirestore(pendingDeleteId);
-                populateTeamDropdowns();
             } else {
-                bookings = bookings.filter(b => b.id !== pendingDeleteId);
                 deleteBookingFromFirestore(pendingDeleteId);
             }
 
@@ -1756,7 +1760,6 @@
     window.generateAndExportReport = generateAndExportReport;
 
     function initApp() {
-        initializeMockBookings();
         populateTeamDropdowns();
 
         const todayStr = formatDateStr(new Date());
@@ -1776,9 +1779,7 @@
         gFilter?.addEventListener('change', (e) => syncDateFilter(e.target.value));
         gFilterM?.addEventListener('change', (e) => syncDateFilter(e.target.value));
         document.getElementById('assessorSearchInput')?.addEventListener('input', () => renderAssessorAvailabilityPanel());
-
         document.getElementById('tableSearchInput')?.addEventListener('input', () => renderBookingsTable());
-
         document.getElementById('teamSearchInput')?.addEventListener('input', () => renderTeamRegistry());
 
         const calPrev = document.getElementById('calPrevBtn');
