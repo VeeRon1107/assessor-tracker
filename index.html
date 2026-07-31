@@ -611,7 +611,7 @@
         }
     });
 
-    // Firestore Collection references following mandatory public artifact pathing rules
+    // Firestore Collection references
     const TEAM_COL = collection(db, 'artifacts', appId, 'public', 'data', 'projectTeam');
     const BOOKINGS_COL = collection(db, 'artifacts', appId, 'public', 'data', 'bookings');
 
@@ -665,10 +665,8 @@
         }, err => console.log("Team snapshot listener notice:", err));
 
         onSnapshot(BOOKINGS_COL, (snapshot) => {
-            if (!snapshot.empty) {
-                bookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                refreshAllViews();
-            }
+            bookings = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+            refreshAllViews();
         }, err => console.log("Bookings snapshot listener notice:", err));
     }
 
@@ -716,7 +714,6 @@
         return `${y}-${m}-${d}`;
     }
 
-    // Normalizes date strings (e.g. "2026-7-7" -> "2026-07-07") for accurate date comparison
     function normalizeDateStr(dateStr) {
         if (!dateStr) return '';
         const parts = String(dateStr).split('-');
@@ -727,21 +724,6 @@
             return `${y}-${m}-${d}`;
         }
         return dateStr;
-    }
-
-    function getAssessorBadgeHtml(name) {
-        const parts = name.trim().split(' ');
-        let initials = parts[0] ? parts[0].charAt(0) : '';
-        if (parts.length > 1) {
-            initials += parts[parts.length - 1].charAt(0);
-        }
-        initials = initials.toUpperCase() || 'A';
-
-        return `
-            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-400 to-pink-300 text-white font-extrabold text-[11px] flex items-center justify-center shadow-2xs border border-rose-200 flex-shrink-0">
-                ${initials}
-            </div>
-        `;
     }
 
     function openModal(modalId) {
@@ -795,63 +777,8 @@
     }
 
     function initializeMockBookings() {
-        const todayStr = formatDateStr(new Date());
-        const dateObj = new Date();
-        
-        const tomDate = new Date(dateObj);
-        tomDate.setDate(tomDate.getDate() + 1);
-        const tomStr = formatDateStr(tomDate);
-
-        const nextDate = new Date(dateObj);
-        nextDate.setDate(nextDate.getDate() + 3);
-        const nextStr = formatDateStr(nextDate);
-
-        const pastDate = new Date(dateObj);
-        pastDate.setDate(pastDate.getDate() - 5);
-        const pastStr = formatDateStr(pastDate);
-
-        bookings = [
-            {
-                id: 'b0',
-                clientName: 'Nova Robotics',
-                assessors: ['Dr. Sarah Jenkins', 'Liam Vance'],
-                blockedBy: 'pt3',
-                date: pastStr,
-                remarks: 'Past quarterly safety audit.'
-            },
-            {
-                id: 'b1',
-                clientName: 'Apex Logistics Hub',
-                assessors: ['Dr. Sarah Jenkins', 'Michael Chen'],
-                blockedBy: 'pt1',
-                date: todayStr,
-                remarks: 'Annual safety & compliance audit.'
-            },
-            {
-                id: 'b2',
-                clientName: 'BioHealth Labs',
-                assessors: ['Elena Rostova'],
-                blockedBy: 'pt2',
-                date: todayStr,
-                remarks: 'Cleanroom certification review.'
-            },
-            {
-                id: 'b3',
-                clientName: 'Starlight Retail HQ',
-                assessors: ['David Miller', 'Amara Okafor'],
-                blockedBy: 'pt4',
-                date: tomStr,
-                remarks: 'Ergonomic & environmental standard review.'
-            },
-            {
-                id: 'b4',
-                clientName: 'Vanguard Manufacturing',
-                assessors: ['Dr. Sarah Jenkins'],
-                blockedBy: 'pt1',
-                date: nextStr,
-                remarks: 'ISO 9001 quality audit phase 1.'
-            }
-        ];
+        // Starts with a clean slate; user bookings sync dynamically from Firestore
+        bookings = [];
     }
 
     function renderAssessorAvailabilityPanel() {
@@ -1863,7 +1790,6 @@
             renderCalendar();
         };
 
-        // Add key listener on assessor tags input inside form
         document.getElementById('assessorInput')?.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
